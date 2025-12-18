@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+
+@theme{
+    --color-navbar: #212529; 
+    --color-blanco: #FFFFFF;
+    --color-texto-h1: theme(colors.sky.700);
+    --color-login: rgba(255, 255, 255, 0.08);
+}
+
+
+
+body {
+    font-family: 'Roboto', sans-serif;
+}

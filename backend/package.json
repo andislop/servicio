@@ -1,0 +1,34 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "server": "nodemon app",
+    "client": "cd .. && npm run dev --prefix ./fronted",
+    "start": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\" "
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "framer-motion": "^12.23.24",
+    "fs": "^0.0.1-security",
+    "googleapis": "^159.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.555.0",
+    "multer": "^2.0.2",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.15.3",
+    "recharts": "^3.5.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
