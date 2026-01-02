@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 // Importamos el ícono de Menú para el botón de responsive
-import { Menu } from "lucide-react"; 
+import { Menu } from "lucide-react";
 import DashboardView from "./DashboardView";
 import ArchivedView from "./ArchivedView";
 import FamilyHeadsView from "./FamilyHeadsView";
@@ -13,40 +13,49 @@ import Sidebar from "./Sidebar";
 import MemberDetailModal from "./MemberDetailModal";
 import ImageUploadPage from "./ImageUploadPage";
 import Axios from "axios";
-import Users from "./Users";
+import Users from "./Usuarios";
 import { Link } from "react-router-dom";
+import NavBar from "./NavBar";
+import Manzaneros from "./Manzaneros";
+import AddMemberModal from "./AddMemberModal";
+
 // Se importa Link, aunque no se usa directamente aquí, es buena práctica.
 // 🚨 AJUSTE DE RUTAS: Usaremos el punto '.' para la ruta base anidada
 const links = [
   {
     id: 1,
     title: "Dashboard",
-    link: ".", 
+    link: ".",
   },
   {
     id: 2,
     title: "Jefes de Familia",
-    link: "family-heads", 
+    link: "family-heads",
   },
   {
     id: 3,
     title: "Núcleos Familiares",
-    link: "family-nucleus", 
+    link: "family-nucleus",
   },
   {
     id: 4,
-    title: "Archivados",
-    link: "archived", 
+    title: "Manzaneros",
+    link: "manzaneros",
   },
   {
     id: 5,
-    title: "Configuración",
-    link: "settings", 
+    title: "Usuarios en el Sistema",
+    link: "users",
   },
   {
     id: 6,
+    title: "Configuración",
+    link: "settings",
+  },
+  {
+    id: 7,
     title: "Agregar Contenido",
-    link: "upload-content", 
+    link: "upload-content",
   },
   {
     id: 8,
@@ -54,21 +63,25 @@ const links = [
     link: "profile",
   },
   {
-    id: 7,
-    title: "Usuarios en el Sistema",
-    link: "users",
-  }
+    id: 9,
+    title: "Archivados",
+    link: "archived",
+  },
 ];
 const API_BASE_URL = "http://localhost:3001/api/jefes";
 
 const Dashboard = () => {
   const [families, setFamilies] = useState([]);
+  const [nucleo, setNucleo] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [manzaneros, setManzaneros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalType, setModalType] = useState(null);
   const [selectedHead, setSelectedHead] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedMemberFamily, setSelectedMemberFamily] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedFamily, setSelectedFamily] = useState(null);
 
   // Función para alternar el estado del Sidebar
   const toggleSidebar = useCallback(() => {
@@ -82,49 +95,34 @@ const Dashboard = () => {
       const jefesFromApi = response.data;
       const transformedFamilies = jefesFromApi.map((jefe) => {
         const isHead = true;
-        const familyName = jefe.nombreFamilia || "Núcleo Desconocido";
         const memberStatus = jefe.estado || "Activo";
-        const familyId = jefe.id_familia 
-|| jefe.id;
+        const familyId = jefe.id_persona || jefe.id;
 
         return {
           id: familyId,
-          name: familyName,
-          address: jefe.direccion || "N/A",
-          membersCount: 1,
           activeMembers: memberStatus === "Activo" ? 1 : 0,
-          notes: jefe.notas || "",
           registeredDate:
-    
-         jefe.registeredDate || new Date().toISOString().split("T")[0],
+            jefe.registeredDate || new Date().toISOString().split("T")[0],
           members: [
             {
               id: jefe.id,
-              name: jefe.nombre || "",
-              role: "Jefe de Familia",
-              status: memberStatus,
-  
-              email: jefe.email ||
-"",
-              phone: jefe.telefono ||
-"",
-              dob: jefe.fechaNacimiento ||
-null,
-              occupation: jefe.ocupacion ||
-"",
+              primerNombre: jefe.primerNombre ?? "",
+              primerApellido: jefe.primerApellido ?? "",
+              vivienda: jefe.vivienda ?? "",
+              rol: jefe.rol ?? "",
               isHead,
               avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${(
                 jefe.nombre || "J"
               )
                 .split(" ")
                 .map((n) => n[0])
-    
-             .join("")}`,
+
+                .join("")}`,
               raw: jefe,
             },
           ],
         };
-});
+      });
 
       setFamilies(transformedFamilies);
     } catch (error) {
@@ -132,18 +130,129 @@ null,
         "Error al cargar datos desde la API:",
         error.response?.data || error.message
       );
- alert(
+      alert(
         "Error al conectar con la API o al cargar datos. Revisa la consola para más detalles."
       );
- setFamilies([]);
+      setFamilies([]);
     } finally {
       setLoading(false);
     }
   }, []);
- useEffect(() => {
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get("http://localhost:3001/api/usuarios");
+      const usuariosFromApi = response.data;
+
+      const transformedUsers = usuariosFromApi.map((user) => {
+        // Generamos las iniciales para el avatar
+        const initials = (user.primer_nombre || "U")
+          .split(" ")
+          .map((n) => n[0])
+          .join("");
+
+        return {
+          id: user.id_persona,
+          email: user.email,
+          name: user.primer_nombre || "Usuario sin nombre",
+          role: user.rol || "No asignado",
+          vivienda: user.vivienda || "N/A",
+          // Estructura compatible con tus otros componentes
+          avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+          raw: user, // Guardamos el objeto original por si acaso
+        };
+      });
+
+      setUsuarios(transformedUsers);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+      setUsuarios([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchManzaneros = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get("http://localhost:3001/api/manzaneros");
+      const manzanerosFromApi = response.data;
+
+      const datosManzanero = manzanerosFromApi.map((user) => {
+        // Generamos las iniciales para el avatar
+        const initials = (user.primer_nombre || "U")
+          .split(" ")
+          .map((n) => n[0])
+          .join("");
+
+        return {
+          id: user.id_persona,
+          vivienda: user.vivienda,
+          name: user.primer_nombre || "Usuario sin nombre",
+          apellido: user.primer_apellido || "Usuario sin nombre",
+          role: user.rol || "No asignado",
+          totalMiembros: user.totalMiembrosVivienda || "N/A",
+          // Estructura compatible con tus otros componentes
+          avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+          raw: user, // Guardamos el objeto original por si acaso
+        };
+      });
+
+      setManzaneros(datosManzanero);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+      setManzaneros([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchFamilies = useCallback(async () => {
+    try {
+      const response = await Axios.get("http://localhost:3001/api/nucleos");
+      // Tu API ya devuelve los datos agrupados, NO necesitas el .reduce
+      const dataAgrupada = response.data.map((familia) => ({
+        ...familia,
+        // Opcional: Si quieres agregar los avatares aquí
+        members: familia.members.map((m) => {
+          const initials =
+            `${m.primer_nombre?.[0] || ""}${
+              m.primer_apellido?.[0] || ""
+            }`.toUpperCase() || "U";
+          return {
+            ...m,
+            avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+          };
+        }),
+      }));
+
+      setNucleo(dataAgrupada);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+      setNucleo([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchFamiliesAndHeads();
   }, [fetchFamiliesAndHeads]);
- const familyHeads = useMemo(() => {
+
+  useEffect(() => {
+    fetchFamilies();
+  }, [fetchFamilies]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    fetchManzaneros();
+  }, [fetchManzaneros]);
+
+  const familyHeads = useMemo(() => {
     return families.flatMap((f) =>
       f.members
         .filter((m) => m.isHead)
@@ -155,226 +264,392 @@ null,
         }))
     );
   }, [families]);
- // [Lógica para modales y guardar/archivar... se mantienen igual]
+  // [Lógica para modales y guardar/archivar... se mantienen igual]
 
   const handleOpenAddHead = useCallback(() => {
     setSelectedHead(null);
     setModalType("addHead");
   }, []);
- const handleOpenEditHead = useCallback((head) => {
-    const original = head.raw ?? head;
-    setSelectedHead(original);
-    setModalType("editHead");
+  const handleOpenEditHead = useCallback(async (member) => {
+    const id = member.id_persona || member.id;
+
+    if (!id) {
+      console.error("Miembro sin id_persona:", member);
+      alert("Error interno: miembro sin identificador.");
+      return;
+    }
+    try {
+      const { data } = await Axios.get(
+        `http://localhost:3001/api/personas/${id}`
+      );
+
+      setSelectedHead(data); // 👉 ahora tienes TODOS los datos
+      setModalType("editHead");
+    } catch (error) {
+      console.error("Error cargando datos para edición:", error);
+      alert("No se pudo cargar la información del jefe.");
+    }
   }, []);
- const handleOpenViewMember = useCallback((member, family) => {
-    setSelectedMember(member);
-    setSelectedMemberFamily(family);
-    setModalType("viewMember");
+
+  const handleOpenViewMember = useCallback(async (member) => {
+    const id = member.id_persona || member.id;
+
+    if (!id) {
+      console.error("Miembro sin id_persona:", member);
+      alert("Error interno: miembro sin identificador.");
+      return;
+    }
+
+    try {
+      const { data } = await Axios.get(
+        `http://localhost:3001/api/personas/${id}`
+      );
+
+      setSelectedMember(data);
+      setSelectedMemberFamily({
+        nombre_familia: data.nombre_familia,
+        vivienda: data.vivienda,
+        membersCount: data.totalMiembros,
+      });
+
+      setModalType("viewMember");
+    } catch (error) {
+      console.error("Error cargando ficha:", error);
+      alert("No se pudo cargar la ficha del habitante.");
+    }
   }, []);
- const handleCloseModal = useCallback(() => {
+
+  const handleCloseModal = useCallback(() => {
     setModalType(null);
     setSelectedHead(null);
     setSelectedMember(null);
     setSelectedMemberFamily(null);
   }, []);
- const handleSaveHead = async (familyHeadData) => {
+
+  const handleSaveHead = async (familyHeadData) => {
     const isNew = !familyHeadData.id;
- const dataToSend = {
-      nombre: familyHeadData.name ?? familyHeadData.nombre ??
-"",
-      fechaNacimiento:
-        familyHeadData.dob ?? familyHeadData.fechaNacimiento ??
-null,
-      ocupacion: familyHeadData.occupation ?? familyHeadData.ocupacion ?? null,
-      email: familyHeadData.email ??
-null,
-      telefono: familyHeadData.phone ?? familyHeadData.telefono ?? null,
-      estado: familyHeadData.status ??
-familyHeadData.estado ?? "Activo",
-      nombreFamilia:
-        familyHeadData.familyName ?? familyHeadData.nombreFamilia ??
-"",
-      direccion: familyHeadData.address ?? familyHeadData.direccion ?? null,
-      notas: familyHeadData.notes ??
-familyHeadData.notas ?? null,
+    const dataToSend = {
+      ...familyHeadData,
+      segundoNombre: familyHeadData.segundoNombre || null,
+      segundoApellido: familyHeadData.segundoApellido || null,
+      esManzanero: familyHeadData.esManzanero === true,
+      esJefeCalle: familyHeadData.esJefeCalle === true,
+      password: familyHeadData.password || null,
+      fechaNacimiento: familyHeadData.fechaNacimiento
+        ? familyHeadData.fechaNacimiento.split("T")[0]
+        : null,
     };
 
     try {
       if (isNew) {
-        await Axios.post(API_BASE_URL, dataToSend);
- alert("Jefe de familia registrado con éxito!");
+        await Axios.post(
+          "http://localhost:3001/api/registrar-jefe",
+          dataToSend
+        );
+        alert("Jefe de familia registrado con éxito!");
       } else {
-        await Axios.put(`${API_BASE_URL}/${familyHeadData.id}`, dataToSend);
- alert("Jefe de familia actualizado con éxito!");
+        await Axios.put(
+          `http://localhost:3001/api/editar-jefe/${familyHeadData.id}`,
+          dataToSend
+        );
+        alert("Jefe de familia actualizado con éxito!");
       }
       handleCloseModal();
       fetchFamiliesAndHeads();
- } catch (error) {
+    } catch (error) {
       console.error(
         "Error salvando/actualizando el familiar:",
         error.response?.data || error.message
       );
- alert(
+      alert(
         `Error al guardar los datos: ${
           error.response?.data?.message || error.message
         }. Revisa la consola.`
       );
- }
+    }
   };
 
+  const handleOpenAddMember = (family) => {
+    setSelectedFamily(family);
+    setModalType("addMember");
+  };
+  const handleEditMember = useCallback(async (member) => {
+    const id = member.id_persona || member.id;
+    if (!id) return;
+
+    try {
+      // 🔍 Buscamos los datos completos (cédula, carnet, etc.)
+      const { data } = await Axios.get(
+        `http://localhost:3001/api/personas/${id}`
+      );
+
+      setSelectedMember(data); // Ahora sí tiene cedula, codigo_carnet, etc.
+      setModalType("editMember");
+    } catch (error) {
+      console.error("Error cargando datos del miembro:", error);
+      alert("No se pudo obtener la información completa.");
+    }
+  }, []);
+
+  const handleSaveMember = async (newMemberData) => {
+    const idReal = selectedFamily?.id_nucleo || selectedFamily?.id;
+
+    const dataToBackend = {
+      idNucleo: idReal,
+      cedula: newMemberData.cedula,
+      primerNombre: newMemberData.primerNombre,
+      primerApellido: newMemberData.primerApellido,
+      segundoNombre: newMemberData.segundoNombre || null,
+      segundoApellido: newMemberData.segundoApellido || null,
+      fechaNacimiento: newMemberData.fechaNacimiento,
+      sexo: newMemberData.sexo,
+      telefono: newMemberData.telefono || null,
+      nacionalidad: newMemberData.nacionalidad,
+      carnetCodigo: newMemberData.carnetCodigo || null,
+      carnetSerial: newMemberData.carnetSerial || null,
+    };
+
+    try {
+      if (modalType === "editMember") {
+        // 📝 MODO EDICIÓN
+        await Axios.put(
+          `http://localhost:3001/api/editar-miembro/${newMemberData.id_persona}`,
+          dataToBackend
+        );
+        alert("¡Miembro actualizado con éxito!");
+      } else {
+        // ➕ MODO AGREGAR
+        await Axios.post(
+          "http://localhost:3001/api/agregar-miembro",
+          dataToBackend
+        );
+        alert("¡Miembro agregado con éxito!");
+      }
+
+      setModalType(null);
+      fetchFamilies();
+    } catch (error) {
+      console.error("Error al procesar:", error.response?.data);
+      alert("Error: " + (error.response?.data?.message || "Revisa la consola"));
+    }
+  };
+
+  const handleUpdateMember = async (updatedData) => {
+    const idPersona = selectedMember.id_persona || selectedMember.id;
+
+    const dataToBackend = {
+      cedula: updatedData.cedula,
+      primerNombre: updatedData.primerNombre,
+      primerApellido: updatedData.primerApellido,
+      segundoNombre: updatedData.segundoNombre,
+      segundoApellido: updatedData.segundoApellido,
+      fechaNacimiento: updatedData.fechaNacimiento,
+      sexo: updatedData.sexo,
+      telefono: updatedData.telefono,
+      nacionalidad: updatedData.nacionalidad,
+      carnetCodigo: updatedData.carnetCodigo, // Asegúrate de que coincida con tu Modal
+      carnetSerial: updatedData.carnetSerial,
+    };
+
+    try {
+      await Axios.put(
+        `http://localhost:3001/api/editar-miembro/${idPersona}`,
+        dataToBackend
+      );
+      alert("Datos actualizados");
+      setModalType(null);
+      fetchFamilies(); // Recargar la lista
+    } catch (error) {
+      console.error("Error al editar:", error.response?.data);
+    }
+  };
   const handleArchiveHead = async (head) => {
     const apiData = {
-      nombre: head.name ??
- head.nombre ?? "",
-      fechaNacimiento: head.dob ?? head.fechaNacimiento ??
- null,
+      nombre: head.name ?? head.nombre ?? "",
+      fechaNacimiento: head.dob ?? head.fechaNacimiento ?? null,
       ocupacion: head.occupation ?? head.ocupacion ?? null,
-      email: head.email ??
- null,
-      telefono: head.phone ?? head.telefono ??
- null,
+      email: head.email ?? null,
+      telefono: head.phone ?? head.telefono ?? null,
       estado: "Inactivo",
-      nombreFamilia: head.nombreFamilia ?? head.familyName ??
- "",
+      nombreFamilia: head.nombreFamilia ?? head.familyName ?? "",
       direccion: head.address ?? head.direccion ?? null,
-      notas: head.notes ??
- head.notas ?? null,
+      notas: head.notes ?? head.notas ?? null,
     };
 
     try {
       await Axios.put(`${API_BASE_URL}/${head.id}`, apiData);
- alert(
+      alert(
         `Jefe de familia ${
           head.name || head.nombre
         } archivado con éxito (estado Inactivo)!`
       );
- fetchFamiliesAndHeads();
+      fetchFamiliesAndHeads();
     } catch (error) {
       console.error(
         "Error al archivar el familiar:",
         error.response?.data || error.message
       );
- alert(
+      alert(
         `Error al archivar: ${
           error.response?.data?.message || error.message
         }. Revisa la consola.`
       );
- }
+    }
   }; // Función para determinar la vista actual y pasarla al Sidebar para resaltar el enlace
 
   const location = useLocation();
- const getActiveLink = () => {
+  const getActiveLink = () => {
     // 🚨 CORRECCIÓN CLAVE: Buscamos el segmento de la ruta después de /dashboard
-    const currentPathSegment = location.pathname.split("/dashboard")[1] ||
- "/";
+    const currentPathSegment = location.pathname.split("/dashboard")[1] || "/";
 
     // Eliminamos la barra inicial si existe, para comparar con 'family-heads'
     const cleanPath = currentPathSegment.startsWith("/")
-      ?
- currentPathSegment.substring(1)
+      ? currentPathSegment.substring(1)
       : currentPathSegment; // Buscamos el link que coincida.
- const activeLink = links.find(
+    const activeLink = links.find(
       (l) =>
         // 1. Si el link es '.', coincide con la ruta base limpia (que sería '')
         (l.link === "." && cleanPath === "") ||
         // 2. Si el link es un nombre de ruta (ej: 'family-heads'), coincide con el path limpio
         l.link === cleanPath
     );
- return activeLink ? activeLink.title : "";
+    return activeLink ? activeLink.title : "";
   }; // Usamos el título del enlace activo para resaltarlo en el Sidebar
   const currentViewTitle = getActiveLink();
- // ------------------------------------------------------------- // 🚨 AJUSTE PRINCIPAL: Sustitución de renderContent por <Routes> // -------------------------------------------------------------
+  // ------------------------------------------------------------- // 🚨 AJUSTE PRINCIPAL: Sustitución de renderContent por <Routes> // -------------------------------------------------------------
 
   const ContentRouter = () => {
     if (loading) {
       return (
         <div className="flex justify-center items-center h-full">
           <p className="text-xl text-blue-600">
-            Cargando datos del servidor... 
-
+            Cargando datos del servidor...
           </p>
-
         </div>
       );
- }
+    }
 
     return (
       <Routes>
-
-    <Route path="/" element={<DashboardView toggleSidebar={toggleSidebar} />} />
+        <Route
+          path="/"
+          element={<DashboardView toggleSidebar={toggleSidebar} />}
+        />
         <Route
           path="family-heads"
           element={
             <FamilyHeadsView
               familyHeads={familyHeads}
               onAdd={handleOpenAddHead}
-             
- onEdit={handleOpenEditHead}
-              onView={(head) => {
-                const family = families.find(
-                  (f) => f.name === head.nombreFamilia
-                );
-                const member = family?.members.find((m) => m.id === head.id);
-   
-              if (member && family) {
-                  handleOpenViewMember(member, family);
-                }
-              }}
+              onEdit={handleOpenEditHead}
+              onView={(head) => handleOpenViewMember({ id: head.id })}
               onArchive={handleArchiveHead}
               toggleSidebar={toggleSidebar}
             />
-        
-   }
+          }
         />
-        
+
         <Route
           path="family-nucleus"
           element={
             <FamilyNucleusView
-              families={families}
+              nucleo={nucleo}
+              onAdd={handleOpenAddMember}
+              onViewMember={handleOpenViewMember}
+              onEdit={handleOpenEditHead}
+              onEditMember={handleEditMember}
+              toggleSidebar={toggleSidebar}
+            />
+          }
+        />
+
+        <Route
+          path="manzaneros"
+          element={
+            <Manzaneros
+              manzaneros={manzaneros}
+              onAdd={handleOpenAddHead}
               onViewMember={handleOpenViewMember}
               onEdit={handleOpenEditHead}
               toggleSidebar={toggleSidebar}
             />
-  
-         }
+          }
         />
-         {/* Ruta: /dashboard/archived */}
-         <Route path="archived" element={<ArchivedView toggleSidebar={toggleSidebar}/>} />
+
+        {/* Ruta: /dashboard/archived */}
+        <Route
+          path="archived"
+          element={<ArchivedView toggleSidebar={toggleSidebar} />}
+        />
         {/* Ruta: /dashboard/settings */}
-        <Route path="settings" element={<SettingsView toggleSidebar={toggleSidebar} />} />
+        <Route
+          path="settings"
+          element={<SettingsView toggleSidebar={toggleSidebar} />}
+        />
         {/* Ruta: /dashboard/upload-content */}
-        <Route path="upload-content" element={<ImageUploadPage toggleSidebar={toggleSidebar} />} />
+        <Route
+          path="upload-content"
+          element={<ImageUploadPage toggleSidebar={toggleSidebar} />}
+        />
         {/* Ruta comodín si no 
  se encuentra la ruta interna */}
-        <Route path="*" element={<DashboardView toggleSidebar={toggleSidebar} />} />
-        <Route path="users" element={<Users />} />
-
+        <Route
+          path="*"
+          element={<DashboardView toggleSidebar={toggleSidebar} />}
+        />
+        <Route
+          path="users"
+          element={
+            <Users
+              usuarios={usuarios}
+              onAdd={handleOpenAddHead}
+              onViewMember={handleOpenViewMember}
+              onEdit={handleOpenEditHead}
+              toggleSidebar={toggleSidebar}
+            />
+          }
+        />
       </Routes>
     );
- }; // -------------------------------------------------------------
+  }; // -------------------------------------------------------------
   return (
     <div className="flex h-screen bg-gray-50 antialiased overflow-hidden">
-     
       {/* Pasamos 'links', la vista activa, y los nuevos estados/funciones para el control del sidebar */}
-     <Sidebar 
-       links={links} 
-       currentView={currentViewTitle} 
-       isOpen={isSidebarOpen} 
-       onClose={() => setIsSidebarOpen(false)} 
-     />
-      
+
+      <Sidebar
+        links={links}
+        currentView={currentViewTitle}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+
       <main className="flex-grow overflow-y-auto relative">
-         {/* Aquí renderizamos las rutas */}
-        <ContentRouter />
+        {/* INSERTAMOS EL NAVBAR AQUÍ */}
+        <NavBar onToggleSidebar={() => setIsSidebarOpen(true)} />
+
+        {/* Contenedor del contenido con scroll independiente */}
+        <div className="flex-grow overflow-y-auto p-4 md:p-8">
+          <ContentRouter />
+        </div>
       </main>
 
       <AddFamilyHeadModal
-   
-         isOpen={modalType === "addHead"}
+        isOpen={modalType === "addHead"}
         onClose={handleCloseModal}
         onSave={handleSaveHead}
       />
+      {modalType === "addMember" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <AddMemberModal
+              familyId={selectedFamily?.id_familia}
+              familyName={selectedFamily?.nombre_familia}
+              onSave={handleSaveMember}
+              onClose={handleCloseModal}
+            />
+          </div>
+        </div>
+      )}
 
       <EditFamilyHeadModal
         isOpen={modalType === "editHead"}
@@ -382,15 +657,26 @@ familyHeadData.notas ?? null,
         familyHead={selectedHead}
         onSave={handleSaveHead}
       />
+
+      {modalType === "editMember" && (
+        <AddMemberModal
+          initialData={selectedMember}
+          isEditing={true}
+          onSave={handleUpdateMember} // La función API que creamos antes
+          onClose={() => {
+            setModalType(null);
+            setSelectedMember(null);
+          }}
+        />
+      )}
       <MemberDetailModal
         isOpen={modalType === "viewMember"}
         onClose={handleCloseModal}
- 
         member={selectedMember}
         family={selectedMemberFamily}
       />
     </div>
   );
- };
+};
 
 export default Dashboard;

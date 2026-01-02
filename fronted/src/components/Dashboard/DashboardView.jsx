@@ -66,25 +66,16 @@ const ROLE_DISTRIBUTION_DATA = [
   { name: "Adolescentes", value: 17 },
 ];
 // Se añade la prop 'toggleSidebar'
-const DashboardView = ({ toggleSidebar }) => (
+const DashboardView = () => (
   <div className="min-h-screen bg-gray-100 font-sans">
     <div className="space-y-6 p-0 md:p-0 max-w-7xl mx-auto">
 
       <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 border-b pb-2 flex items-center justify-between">
         <span className="flex items-center truncate">
           {/* Botón de Menú para Responsive: Visible solo en móviles [cite: 138] */}
-          <button 
-            onClick={toggleSidebar} 
-            className="md:hidden text-gray-600 hover:text-blue-600 mr-2 p-1 rounded-md transition duration-150"
-            aria-label="Abrir menú de navegación"
-          >
-            <Menu className="w-6 h-6 sm:w-8 sm:h-8" />
-          </button>
           <LayoutDashboard className="w-6 h-6 sm:w-8 sm:h-8 mr-2 text-blue-600 flex-shrink-0" />
           Dashboard: Villa Productiva
         </span>
-        <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-red-600 flex-shrink-0 md:inline-block 
-hidden" />
       </h1>
       <p className="text-gray-600 text-sm sm:text-base lg:text-lg">
         Resumen y análisis de la comunidad y núcleos familiares

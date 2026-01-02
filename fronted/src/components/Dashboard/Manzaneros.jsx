@@ -6,7 +6,7 @@ import StatusBadge from './StatusBadge';
 import ActionButton from './ActionButton';
 
 
-const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
+const Manzaneros = ({ manzaneros, onAdd, onEdit, onViewMember, onArchive }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [currentPage, setCurrentPage] = useState(1); // Nuevo estado para la página actual
@@ -14,14 +14,14 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
   const ITEMS_PER_PAGE = 5; // Limite de 5 usuarios por página
 
   const filteredHeads = useMemo(() => {
-    return familyHeads
+    return manzaneros
       .filter(head => {
-        const matchesSearch = head.primerNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          head.vivienda.toLowerCase().includes(searchTerm.toLowerCase()) 
+        const matchesSearch = head.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          head.vivienda.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = filterStatus === 'Todos' || head.status === filterStatus;
         return matchesSearch && matchesStatus;
       });
-  }, [familyHeads, searchTerm, filterStatus]);
+  }, [manzaneros, searchTerm, filterStatus]);
 
   // Lógica de Paginación
   const totalPages = Math.ceil(filteredHeads.length / ITEMS_PER_PAGE);
@@ -85,9 +85,9 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 space-y-4 md:space-y-0">
         <div className="text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Gestión de Jefes de Familia</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Gestión de Manzaneros</h1>
           </div>
-          <p className="text-gray-500 text-sm sm:text-lg mt-1">Administra los jefes de cada núcleo familiar</p>
+          <p className="text-gray-500 text-sm sm:text-lg mt-1">Administra los manzaneros del sistema</p>
         </div>
         
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto">
@@ -97,7 +97,7 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
           </button>
           <button onClick={onAdd} className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg shadow-blue-500/50 w-full sm:w-auto">
             <Plus className="h-5 w-5" />
-            <span>Agregar Jefe de Familia</span>
+            <span>Agregar Manzanero</span>
           </button>
         </div>
       </div>
@@ -106,7 +106,7 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
       <div className="flex flex-wrap gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <input
           type="text"
-          placeholder="Buscar por nombre, vivenda..."
+          placeholder="Buscar por nombre o vivienda..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full lg:flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
@@ -132,10 +132,10 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
       </div>
 
       <p className="text-gray-500 mt-4 text-sm">
-        Mostrando {firstItemDisplayed}-{lastItemDisplayed} de {filteredHeads.length} jefes de familia
+        Mostrando {firstItemDisplayed}-{lastItemDisplayed} de {filteredHeads.length} usuarios
       </p>
 
-      {/* LISTA DE JEFES DE FAMILIA - Usamos currentHeads */}
+      {/* LISTA DE USUARIOS */}
       <div className="space-y-4">
         {currentHeads.map(head => (
           <div key={head.id} className="bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between transition-shadow hover:shadow-lg">
@@ -153,24 +153,26 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
               <div className="min-w-0 flex-grow">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-0.5">
                   <span className="text-base sm:text-lg font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-full">
-                    {head.primerNombre} {head.primerApellido}
+                    {head.name} {head.apellido}
                   </span>
                   <div className="flex space-x-2 mt-1 sm:mt-0 flex-shrink-0">
                     <span className="inline-flex items-center px-2 sm:px-3 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 flex-shrink-0">
-                      Jefe de Familia
+                      Manzaneros
                     </span>
                   </div>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-500 truncate">
-                  <MapPin className="h-3 w-3 inline-block mr-1 text-red-400" /> 
-                  {head.vivienda}
-                  </p>
+                    <MapPin className="h-3 w-3 inline-block mr-1 text-red-400" /> 
+                    {head.vivienda}</p>
+                <p className="text-xs text-gray-600 truncate">
+                    Total de mimebros: {head.totalMiembros} 
+                </p>
               </div>
             </div>
             
             {/* Acciones */}
             <div className="flex space-x-2 sm:space-x-3 justify-end sm:justify-start pt-3 sm:pt-0 border-t sm:border-t-0 mt-3 sm:mt-0 w-full sm:w-auto flex-shrink-0">
-              <ActionButton icon={Eye} label="Ver" onClick={() => onView(head)} color="blue" small />
+              <ActionButton icon={Eye} label="Ver" onClick={() => onViewMember(head, head)} color="blue" small />
               <ActionButton icon={Edit} label="Editar" onClick={() => onEdit(head)} color="green" small />
               <ActionButton icon={Archive} label="Archivar" onClick={() => onArchive(head)} color="red" small />
             </div>
@@ -180,7 +182,7 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
             <p className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-md">No hay jefes de familia en esta página. Intente ir a la página 1.</p>
         )}
         {filteredHeads.length === 0 && (
-          <p className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-md">No se encontraron jefes de familia que coincidan con la búsqueda.</p>
+          <p className="text-center text-gray-500 py-10 bg-white rounded-xl shadow-md">No se encontraron usuarios que coincidan con la búsqueda.</p>
         )}
       </div>
 
@@ -216,4 +218,4 @@ const FamilyHeadsView = ({ familyHeads, onAdd, onEdit, onView, onArchive }) => {
   );
 };
 
-export default FamilyHeadsView;
+export default Manzaneros;

@@ -1,9 +1,37 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import FamilyHeadForm from "./FamilyHeadModal";
 
 const EditFamilyHeadModal = ({ isOpen, onClose, familyHead, onSave }) => {
-  if (!isOpen) return null;
+
+  const [formData, setFormData] = useState({});
+  useEffect(() => {
+    if (familyHead) {
+      setFormData({
+        id: familyHead.id_persona,
+        nombreFamilia: familyHead.nombre_familia || "",
+        vivienda: familyHead.vivienda || "",
+        cedula: familyHead.cedula || "",
+        primerNombre: familyHead.primer_nombre || "",
+        segundoNombre: familyHead.segundo_nombre || "",
+        primerApellido: familyHead.primer_apellido || "",
+        segundoApellido: familyHead.segundo_apellido || "",
+        fechaNacimiento: familyHead.fecha_nacimiento || "",
+        sexo: familyHead.sexo || "",
+        mercado: familyHead.mercado || "",
+        telefono: familyHead.telefono || "",
+        nacionalidad: familyHead.nacionalidad || "",
+        esManzanero: familyHead.es_manzanero === 1,
+        esJefeCalle: familyHead.es_jefe_calle === 1,
+        carnetCodigo: familyHead.codigo_carnet || "",
+        carnetSerial: familyHead.serial_carnet || "",
+        email: familyHead.email || "",
+        password: "",
+      });
+    }
+  }, [familyHead]);
+
+    if (!isOpen) return null;
 
   return (
     <div
@@ -20,14 +48,17 @@ const EditFamilyHeadModal = ({ isOpen, onClose, familyHead, onSave }) => {
             Editar Jefe de Familia
           </h2>
 
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
             <Plus className="h-6 w-6 rotate-45" />
           </button>
         </div>
 
         {/* Formulario con datos pre-cargados */}
         <FamilyHeadForm
-          initialData={familyHead}
+          initialData={formData}
           onSave={onSave}
           onClose={onClose}
         />
