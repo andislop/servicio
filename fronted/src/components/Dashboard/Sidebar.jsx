@@ -34,13 +34,30 @@ const iconMap = {
   "Agregar Contenido": Plus,
   "Usuarios en el Sistema": Users,
 };
-function Sidebar({ links, isOpen, onClose }) {
-  // Recibe isOpen y onClose [cite: 180]
+function Sidebar({ links, isOpen, onClose, userRole }) {
+
   const location = useLocation();
-  const navItems = links.map((link) => ({
+
+  const roleAccess = {
+    'Administrador': [
+      "Dashboard", "Jefes de Familia", "Núcleos Familiares", 
+      "Manzaneros", "Usuarios en el Sistema", "Configuración", 
+      "Archivados", "Agregar Contenido"
+    ],
+    'Jefe': [
+      "Dashboard", "Jefes de Familia", "Núcleos Familiares","Configuración"
+    ]
+  };
+
+  const filteredLinks = links.filter(link => 
+    roleAccess[userRole]?.includes(link.title)
+  );
+
+  const navItems = filteredLinks.map((link) => ({
     ...link,
     icon: iconMap[link.title] || LayoutDashboard,
   }));
+
   const isLinkActive = (linkPath) => {
     const currentPathSegment = location.pathname.replace("/dashboard", "");
     if (linkPath === ".") {

@@ -76,6 +76,10 @@ const Dashboard = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [manzaneros, setManzaneros] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [nombreUsuario, setNombreUsuario] = useState([]);
+  const [datoPersonas, setDatoPersonas] = useState([]);
+  const [datosGrafica, setDatosGrafica] = useState([]);
+  const [datosGrafica2, setDatosGrafica2] = useState([]);
   const [modalType, setModalType] = useState(null);
   const [selectedHead, setSelectedHead] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -91,7 +95,9 @@ const Dashboard = () => {
   const fetchFamiliesAndHeads = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(API_BASE_URL);
+      const response = await Axios.get("http://localhost:3001/api/jefes", {
+        withCredentials: true,
+      });
       const jefesFromApi = response.data;
       const transformedFamilies = jefesFromApi.map((jefe) => {
         const isHead = true;
@@ -106,10 +112,11 @@ const Dashboard = () => {
           members: [
             {
               id: jefe.id,
-              primerNombre: jefe.primerNombre ?? "",
-              primerApellido: jefe.primerApellido ?? "",
+              primerNombre: jefe.primer_nombre ?? "",
+              primerApellido: jefe.primer_apellido ?? "",
               vivienda: jefe.vivienda ?? "",
               rol: jefe.rol ?? "",
+              total: jefe.totalJefes ?? "",
               isHead,
               avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${(
                 jefe.nombre || "J"
@@ -210,7 +217,9 @@ const Dashboard = () => {
 
   const fetchFamilies = useCallback(async () => {
     try {
-      const response = await Axios.get("http://localhost:3001/api/nucleos");
+      const response = await Axios.get("http://localhost:3001/api/nucleos", {
+        withCredentials: true,
+      });
       // Tu API ya devuelve los datos agrupados, NO necesitas el .reduce
       const dataAgrupada = response.data.map((familia) => ({
         ...familia,
@@ -236,6 +245,99 @@ const Dashboard = () => {
     }
   }, []);
 
+  const fetchNombre = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get("http://localhost:3001/api/me", {
+        withCredentials: true,
+      });
+      const usuario = response.data.user;
+      const initials = (usuario.primer_nombre?.[0] || "U")
+        .split(" ")
+        .map((n) => n[0])
+        .join("");
+
+      const datoProcesado = {
+        nombreCompleto: `${usuario.primer_nombre}`,
+        rol: `${usuario.rol}`,
+        avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+      };
+      setNombreUsuario(datoProcesado);
+    } catch (error) {
+      console.error("Error al cargar daatos", error);
+      setNombreUsuario([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchDatoPersonas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get(
+        "http://localhost:3001/api/datos-personas",
+        { withCredentials: true }
+      );
+      const nombreFromApi = response.data;
+      const datos = nombreFromApi.map((nombre) => {
+        return {
+          total: nombre.total_miembros,
+          promedio: nombre.promedio,
+        };
+      });
+      setDatoPersonas(datos);
+    } catch (error) {
+      console.error("Error al cargar daatos", error);
+      setDatoPersonas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchDatosGrafica = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get(
+        "http://localhost:3001/api/datos-grafica"
+      );
+      const nombreFromApi = response.data;
+      const datos = nombreFromApi.map((nombre) => {
+        return {
+          torre: nombre.torre,
+          total: nombre.total_habitantes,
+        };
+      });
+      setDatosGrafica(datos);
+    } catch (error) {
+      console.error("Error al cargar daatos", error);
+      setDatosGrafica([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchDatosGrafica2 = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get(
+        "http://localhost:3001/api/datos-grafica-2"
+      );
+      const nombreFromApi = response.data;
+      const datos = nombreFromApi.map((nombre) => {
+        return {
+          rango: nombre.rango_edad,
+          porcentaje: nombre.porcentaje,
+        };
+      });
+      setDatosGrafica2(datos);
+    } catch (error) {
+      console.error("Error al cargar daatos", error);
+      setDatosGrafica2([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchFamiliesAndHeads();
   }, [fetchFamiliesAndHeads]);
@@ -251,6 +353,22 @@ const Dashboard = () => {
   useEffect(() => {
     fetchManzaneros();
   }, [fetchManzaneros]);
+
+  useEffect(() => {
+    fetchNombre();
+  }, [fetchNombre]);
+
+  useEffect(() => {
+    fetchDatoPersonas();
+  }, [fetchDatoPersonas]);
+
+  useEffect(() => {
+    fetchDatosGrafica();
+  }, [fetchDatosGrafica]);
+
+  useEffect(() => {
+    fetchDatosGrafica2();
+  }, [fetchDatosGrafica2]);
 
   const familyHeads = useMemo(() => {
     return families.flatMap((f) =>
@@ -342,11 +460,23 @@ const Dashboard = () => {
 
     try {
       if (isNew) {
-        await Axios.post(
-          "http://localhost:3001/api/registrar-jefe",
-          dataToSend
-        );
-        alert("Jefe de familia registrado con éxito!");
+        try {
+          const response = await Axios.post(
+            "http://localhost:3001/api/registrar-jefe",
+            dataToSend,
+            { withCredentials: true }
+          );
+
+          if (response.status === 202) {
+            alert(
+              "Solicitud enviada: Esperando aprobación de la administradora."
+            );
+          } else {
+            alert("Jefe de familia registrado con éxito!");
+          }
+        } catch (error) {
+          console.error(error.response?.data?.message); // Esto te dirá el error exacto de SQL
+        }
       } else {
         await Axios.put(
           `http://localhost:3001/api/editar-jefe/${familyHeadData.id}`,
@@ -533,7 +663,16 @@ const Dashboard = () => {
       <Routes>
         <Route
           path="/"
-          element={<DashboardView toggleSidebar={toggleSidebar} />}
+          element={
+            <DashboardView
+              toggleSidebar={toggleSidebar}
+              familyHeads={familyHeads}
+              nucleo={nucleo}
+              datoPersonas={datoPersonas}
+              datosGrafica={datosGrafica}
+              datosGrafica2={datosGrafica2}
+            />
+          }
         />
         <Route
           path="family-heads"
@@ -621,11 +760,15 @@ const Dashboard = () => {
         currentView={currentViewTitle}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        userRole={nombreUsuario?.rol}
       />
 
       <main className="flex-grow overflow-y-auto relative">
         {/* INSERTAMOS EL NAVBAR AQUÍ */}
-        <NavBar onToggleSidebar={() => setIsSidebarOpen(true)} />
+        <NavBar
+          nombreUsuario={nombreUsuario}
+          onToggleSidebar={() => setIsSidebarOpen(true)}
+        />
 
         {/* Contenedor del contenido con scroll independiente */}
         <div className="flex-grow overflow-y-auto p-4 md:p-8">

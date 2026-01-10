@@ -104,9 +104,7 @@ const FamilyNucleusView = ({
   const firstItemDisplayed = nucleo.length > 0 ? indexOfFirstItem + 1 : 0;
   const lastItemDisplayed = Math.min(indexOfLastItem, nucleo.length);
 
-  const familyHeadCount = nucleo.filter((f) =>
-    f.members.some((m) => m.isHead)
-  ).length;
+
 
   return (
     <div className="space-y-6 p-4 md:p-8 max-w-7xl mx-auto">
@@ -123,7 +121,7 @@ const FamilyNucleusView = ({
           </p>
         </div>
         <p className="text-gray-600 font-semibold text-base sm:text-lg bg-blue-100 px-3 py-1 rounded-full flex-shrink-0">
-          {familyHeadCount} familias registradas
+          {nucleo.length}{" "} familias registradas
         </p>
       </div>
       <p className="text-gray-500 mt-4 text-sm">
