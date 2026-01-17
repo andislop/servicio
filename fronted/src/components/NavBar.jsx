@@ -7,7 +7,7 @@ const navbarlinks = [
   {
     id: 1,
     title: "Inicio",
-    link: "#",
+    link: "/",
   },
   {
     id: 2,
@@ -22,7 +22,7 @@ const navbarlinks = [
   {
     id: 4,
     title: "Noticias",
-    link: "#noticias",
+    link: "/noticias",
   },
 ];
 
@@ -38,7 +38,7 @@ const navbarmovil = [
   {
     id: 1,
     title: "Inicio",
-    link: "#",
+    link: "/",
   },
   {
     id: 2,
@@ -53,7 +53,7 @@ const navbarmovil = [
   {
     id: 4,
     title: "Noticias",
-    link: "#noticias",
+    link: "/noticias",
   },
 ];
 
@@ -115,33 +115,48 @@ const NavBar = () => {
             className="w-[60px]"
           />
           <span className="ml-2 text-l font-semibold whitespace-nowrap hidden md:block text-white">
-            Comunidad Villa Productiva
+            Comunidad Villa Productiva III
           </span>
           <span className="text-sm font-semibold block md:hidden mt-1 text-white">
-            Comunidad Villa Productiva
+            Comunidad Villa Productiva III
           </span>
         </div>
 
         {/* Menu de navegacion */}
-        <div
-          className="hidden md:flex flex-1 justify-center text-blanco"
-          id="menu"
-        >
-          <ul className="flex space-x-8">
-            {navbarlinks.map((link) => (
-              <li key={link.id}>
-                <a
-                  className=" hover:font-bold hover:text-md hover:text-sky-400 theme-light transition-transform hover:scale-110 transform inline-block duration-300 relative group "
-                  href={link.link}
-                  onClick={handleScroll}
-                >
-                  {link.title}
-                  <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-red-500 transition-all duration-300 group-hover:w-full"></span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+<div className="hidden md:flex flex-1 justify-center text-blanco" id="menu">
+  <ul className="flex space-x-8">
+    {navbarlinks.map((link) => {
+      // 1. Detectamos si es un enlace de scroll (empieza con #)
+      const isAnchor = link.link.startsWith("#");
+
+      return (
+        <li key={link.id}>
+          {isAnchor ? (
+            // OPCIÓN A: Es un ancla (#ubicacion), usamos <a> y handleScroll
+            <a
+              className="hover:font-bold hover:text-md hover:text-sky-400 theme-light transition-transform hover:scale-110 transform inline-block duration-300 relative group"
+              href={link.link}
+              onClick={handleScroll}
+            >
+              {link.title}
+              <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-red-500 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+          ) : (
+            // OPCIÓN B: Es una ruta (/noticias), usamos <Link> de react-router-dom
+            // IMPORTANTE: Aquí NO ponemos onClick={handleScroll}
+            <Link
+              className="hover:font-bold hover:text-md hover:text-sky-400 theme-light transition-transform hover:scale-110 transform inline-block duration-300 relative group"
+              to={link.link}
+            >
+              {link.title}
+              <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-red-500 transition-all duration-300 group-hover:w-full"></span>
+            </Link>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+</div>
 
         {/* Botón de inicio de sesión*/}
         <div className="flex items-center space-x-4 text-white">

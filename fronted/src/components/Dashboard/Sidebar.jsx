@@ -131,17 +131,7 @@ function Sidebar({ links, isOpen, onClose, userRole }) {
                 <div className="flex items-center mr-3 min-w-[44px]">
                   {item.title === "Agregar Contenido" ? (
                     <div className="flex items-center text-sm font-bold tracking-tight">
-                      <span
-                        className={isActive ? "text-white" : "text-blue-600"}
-                      >
-                        1
-                      </span>
                       <Plus className="h-4 w-4 mx-0.5" />
-                      <span
-                        className={isActive ? "text-white" : "text-blue-600"}
-                      >
-                        8
-                      </span>
                     </div>
                   ) : (
                     <item.icon className="h-5 w-5" />

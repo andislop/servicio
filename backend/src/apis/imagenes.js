@@ -1,14 +1,17 @@
 import express from "express";
 import pool from "../bd.js";
+import dotenv from "dotenv";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 
 const Router = express.Router();
+dotenv.config();
+
 
 cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET,
+  cloud_name: process.env.CLOUD_NAME || "di9z6ke80",
+  api_key: process.env.API_KEY || "648664294182496",
+  api_secret: process.env.API_SECRET || "bdk6S1nBVE0Z1aeu5pDFHxRTjqE",
   secure: true,
 });
 const storage = multer.memoryStorage();
@@ -67,6 +70,19 @@ Router.post("/upload", upload.single("imagen"), async (req, res) => {
 Router.get("/items", async (req, res) => {
   try {
     const sql = `SELECT id_imagenes AS id, url, descripcion AS description, titulo AS title FROM imagenes ORDER BY id_imagenes DESC LIMIT 3`;
+    const [rows] = await pool.execute(sql);
+    res.json(rows);
+  } catch (error) {
+    console.error("Error GET /api/items:", error);
+    res
+      .status(500)
+      .json({ message: "Error interno del servidor al obtener la data." });
+  }
+});
+
+Router.get("/items/all", async (req, res) => {
+  try {
+    const sql = `SELECT id_imagenes AS id, url, descripcion AS description, titulo AS title FROM imagenes ORDER BY id_imagenes`;
     const [rows] = await pool.execute(sql);
     res.json(rows);
   } catch (error) {

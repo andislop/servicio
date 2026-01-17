@@ -5,6 +5,7 @@ import Conocenos from './Conocenos';
 import Ubicacion from './Ubicación';
 import Footer from './Footer';
 import Loading from './Loading';
+import NoticiasN from './NoticiasN';
 
 
 const Home = () => {

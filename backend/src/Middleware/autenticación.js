@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 // Exportamos la función para que otros archivos la usen
 
 dotenv.config();
+const JWT_SECRET = "tu_clave_secreta_super_segura";
 
 const verificarToken = (req, res, next) => {
   const token = req.cookies.acceso_token; // Lee la cookie
@@ -13,7 +14,7 @@ const verificarToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded; 
     next();
   } catch (error) {
