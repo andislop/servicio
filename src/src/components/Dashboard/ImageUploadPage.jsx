@@ -1,7 +1,7 @@
 import React, { useState} from 'react';
 
 // Ajusta esta URL si tu backend corre en otro puerto
-const API_URL = 'http://localhost:3001'; 
+
 
 function ImageUploadPage() {
 
@@ -31,7 +31,7 @@ function ImageUploadPage() {
         formData.append('title', title);
 
         try {
-            const response = await fetch(`${API_URL}/api/upload1`, {
+            const response = await fetch(`/api/upload1`, {
                 method: 'POST',
                 body: formData,
             });

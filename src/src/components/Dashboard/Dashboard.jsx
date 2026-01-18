@@ -69,7 +69,7 @@ const links = [
     link: "archived",
   },
 ];
-const API_BASE_URL = "http://localhost:3001/api/jefes";
+
 
 const Dashboard = () => {
   const [families, setFamilies] = useState([]);
@@ -99,7 +99,7 @@ const Dashboard = () => {
   const fetchFamiliesAndHeads = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("http://localhost:3001/api/jefes", {
+      const response = await Axios.get("/api/jefes", {
         withCredentials: true,
       });
 
@@ -165,7 +165,7 @@ const Dashboard = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("http://localhost:3001/api/usuarios");
+      const response = await Axios.get("/api/usuarios");
       const usuariosFromApi = response.data;
 
       const transformedUsers = usuariosFromApi.map((user) => {
@@ -200,7 +200,7 @@ const Dashboard = () => {
   const fetchPoblacion = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("http://localhost:3001/api/poblacion",{
+      const response = await Axios.get("/api/poblacion",{
         withCredentials: true
       });
       const usuariosFromApi = response.data;
@@ -243,7 +243,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/personas-inactivas",
+        "/api/personas-inactivas",
         { withCredentials: true },
       );
       const usuariosFromApi = response.data;
@@ -280,7 +280,7 @@ const Dashboard = () => {
   const fetchManzaneros = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("http://localhost:3001/api/manzaneros");
+      const response = await Axios.get("/api/manzaneros");
       const manzanerosFromApi = response.data;
 
       const datosManzanero = manzanerosFromApi.map((user) => {
@@ -314,7 +314,7 @@ const Dashboard = () => {
 
   const fetchFamilies = useCallback(async () => {
     try {
-      const response = await Axios.get("http://localhost:3001/api/nucleos", {
+      const response = await Axios.get("/api/nucleos", {
         withCredentials: true,
       });
       // Tu API ya devuelve los datos agrupados, NO necesitas el .reduce
@@ -345,7 +345,7 @@ const Dashboard = () => {
   const fetchNombre = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("http://localhost:3001/api/me", {
+      const response = await Axios.get("/api/me", {
         withCredentials: true,
       });
       const usuario = response.data.user;
@@ -372,7 +372,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-personas",
+        "/api/datos-personas",
         { withCredentials: true },
       );
       const nombreFromApi = response.data;
@@ -395,7 +395,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-personas-2",
+        "/api/datos-personas-2",
         { withCredentials: true },
       );
       const nombreFromApi = response.data;
@@ -417,7 +417,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-grafica",
+        "/api/datos-grafica",
       );
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
@@ -439,7 +439,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-grafica-2", { withCredentials: true}
+        "/api/datos-grafica-2", { withCredentials: true}
       );
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
@@ -529,7 +529,7 @@ const Dashboard = () => {
     }
     try {
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`,
+        `/api/personas/${id}`,
       );
 
       setSelectedHead(data); // 👉 ahora tienes TODOS los datos
@@ -551,7 +551,7 @@ const Dashboard = () => {
 
     try {
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`,
+        `/api/personas/${id}`,
       );
 
       setSelectedMember(data);
@@ -593,7 +593,7 @@ const Dashboard = () => {
       if (isNew) {
         try {
           const response = await Axios.post(
-            "http://localhost:3001/api/registrar-jefe",
+            "/api/registrar-jefe",
             dataToSend,
             { withCredentials: true },
           );
@@ -610,7 +610,7 @@ const Dashboard = () => {
         }
       } else {
         await Axios.put(
-          `http://localhost:3001/api/editar-jefe/${familyHeadData.id}`,
+          `/api/editar-jefe/${familyHeadData.id}`,
           dataToSend,
           {withCredentials:true},
         );
@@ -642,7 +642,7 @@ const Dashboard = () => {
     try {
       // 🔍 Buscamos los datos completos (cédula, carnet, etc.)
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`,
+        `/api/personas/${id}`,
       );
 
       setSelectedMember(data); // Ahora sí tiene cedula, codigo_carnet, etc.
@@ -675,14 +675,14 @@ const Dashboard = () => {
       if (modalType === "editMember") {
         // 📝 MODO EDICIÓN
         await Axios.put(
-          `http://localhost:3001/api/editar-miembro/${newMemberData.id_persona}`,
+          `/api/editar-miembro/${newMemberData.id_persona}`,
           dataToBackend,
         );
         alert("¡Miembro actualizado con éxito!");
       } else {
         // ➕ MODO AGREGAR
         await Axios.post(
-          "http://localhost:3001/api/agregar-miembro",
+          "/api/agregar-miembro",
           dataToBackend,
         );
         alert("¡Miembro agregado con éxito!");
@@ -715,7 +715,7 @@ const Dashboard = () => {
 
     try {
       await Axios.put(
-        `http://localhost:3001/api/editar-miembro/${idPersona}`,
+        `/api/editar-miembro/${idPersona}`,
         dataToBackend,
       );
       alert("Datos actualizados");
@@ -730,7 +730,7 @@ const Dashboard = () => {
 
       // Llamamos a la nueva ruta de eliminar-persona
       await Axios.put(
-        `http://localhost:3001/api/eliminar-persona/${familyHeadData.id}`,
+        `/api/eliminar-persona/${familyHeadData.id}`,
         {},
         {withCredentials: true,}
       );
@@ -750,7 +750,7 @@ const Dashboard = () => {
 
       // Llamamos a la nueva ruta de eliminar-persona
       await Axios.put(
-        `http://localhost:3001/api/restaurar-persona/${familyHeadData.id}`,
+        `/api/restaurar-persona/${familyHeadData.id}`,
         {},
         {withCredentials: true,}
       );

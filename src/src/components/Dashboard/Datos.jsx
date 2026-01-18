@@ -90,7 +90,7 @@ const Usuarios = ({ poblacion }) => {
 
   const descargarExcel = async () => {
     try {
-      const res = await Axios.get("http://localhost:3001/api/personas");
+      const res = await Axios.get("/api/personas");
       const personas = res.data;
 
       const encabezados = [

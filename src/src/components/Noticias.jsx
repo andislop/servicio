@@ -30,7 +30,7 @@ const Noticias = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:3001/api/items/all`);
+      const response = await fetch(`/api/items/all`);
       if (!response.ok) {
         throw new Error(`Error ${response.status}: No se pudo cargar la galería.`);
       }

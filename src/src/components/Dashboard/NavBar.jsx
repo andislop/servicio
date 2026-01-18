@@ -24,7 +24,7 @@ const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
   const fetchSolicitudes = async () => {
     try {
       const res = await Axios.get(
-        "http://localhost:3001/api/solicitudes-pendientes",
+        "/api/solicitudes-pendientes",
         { withCredentials: true }
       );
       setSolicitudes(res.data);
@@ -36,7 +36,7 @@ const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
   const procesarAccion = async (id, accion) => {
     try {
       await Axios.post(
-        "http://localhost:3001/api/procesar-solicitud",
+        "/api/procesar-solicitud",
         { id_solicitud: id, accion },
         { withCredentials: true }
       );
@@ -49,7 +49,7 @@ const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
 
   const handleLogout = async () => {
     try {
-      await Axios.post("http://localhost:3001/api/logout", {}, { withCredentials: true });
+      await Axios.post("/api/logout", {}, { withCredentials: true });
       navigate("/");
     } catch (error) {
       console.error("Error al cerrar sesión", error);

@@ -13,7 +13,7 @@ const Login = () => {
     e.preventDefault();
     try {
       const response = await Axios.post(
-        "http://localhost:3001/api/login",
+        "/api/login",
         { email, password },
         { withCredentials: true }
       );

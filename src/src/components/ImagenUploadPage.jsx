@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
 // Ajusta esta URL si tu backend corre en otro puerto
-const API_URL = 'http://localhost:3001'; 
 
 function ImageUploadPage() {
     const [items, setItems] = useState([]);
@@ -15,7 +14,7 @@ function ImageUploadPage() {
         setLoading(true);
         setStatusMessage('Cargando galería...');
         try {
-            const response = await fetch(`${API_URL}/api/items`);
+            const response = await fetch(`/api/items`);
             if (!response.ok) throw new Error('No se pudo cargar la lista de ítems.');
             const data = await response.json();
             setItems(data);
@@ -49,7 +48,7 @@ function ImageUploadPage() {
         formData.append('description', description); 
 
         try {
-            const response = await fetch(`${API_URL}/api/upload`, {
+            const response = await fetch(`/api/upload`, {
                 method: 'POST',
                 body: formData,
             });

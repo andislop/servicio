@@ -4,9 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "server": "nodemon app",
-    "client": "cd .. && npm run dev --prefix ./fronted",
-    "start": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\" "
+    "dev": "nodemon index.js"
   },
   "keywords": [],
   "author": "",

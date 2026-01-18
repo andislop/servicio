@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
-const API_URL = "http://localhost:3001";
+
 
 const Hero = () => {
   const [images, setImages] = useState([]);
@@ -19,7 +19,7 @@ const Hero = () => {
     setError(null);
     try {
       // ... (Lógica de fetch, filtrado y setImages)
-      const response = await fetch(`${API_URL}/api/items1`);
+      const response = await fetch(`/api/items1`);
       if (!response.ok) {
         const errorBody = await response
           .json()
