@@ -15,10 +15,10 @@ app.use(cors({
 app.use(express.json());
 
 // RUTAS
-import rutaUsuarios from "./apis/usuarios.js";
-import rutaImagenes from "./apis/imagenes.js";
-import rutaJefes from "./apis/jefes.js";
-import rutaNucleos from "./apis/nucleos.js";
+import rutaUsuarios from "./src/apis/usuarios.js";
+import rutaImagenes from "./src/apis/imagenes.js";
+import rutaJefes from "./src/apis/jefes.js";
+import rutaNucleos from "./src/apis/nucleos.js";
 
 app.use("/api", rutaUsuarios);
 app.use("/api", rutaImagenes);
