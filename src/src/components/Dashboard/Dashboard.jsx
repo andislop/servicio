@@ -15,6 +15,7 @@ import ImageUploadPage from "./ImageUploadPage";
 import Axios from "axios";
 import Users from "./Usuarios";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import NavBar from "./NavBar";
 import Manzaneros from "./Manzaneros";
 import AddMemberModal from "./AddMemberModal";
@@ -69,7 +70,6 @@ const links = [
     link: "archived",
   },
 ];
-
 
 const Dashboard = () => {
   const [families, setFamilies] = useState([]);
@@ -153,9 +153,11 @@ const Dashboard = () => {
         "Error al cargar datos desde la API:",
         error.response?.data || error.message,
       );
-      alert(
-        "Error al cargar datos. Asegúrate de haber creado el índice en Firebase.",
-      );
+      toast.error("Error al cargar datos", {
+        description:
+          "Asegúrate de haber creado el índice en Firebase o revisa tu conexión.",
+        duration: 5000, // Lo dejamos 5 segundos porque es un error importante
+      });
       setFamilies([]);
     } finally {
       setLoading(false);
@@ -196,12 +198,11 @@ const Dashboard = () => {
     }
   }, []);
 
-  
   const fetchPoblacion = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get("/api/poblacion",{
-        withCredentials: true
+      const response = await Axios.get("/api/poblacion", {
+        withCredentials: true,
       });
       const usuariosFromApi = response.data;
 
@@ -242,10 +243,9 @@ const Dashboard = () => {
   const fetchUsersInactivos = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(
-        "/api/personas-inactivas",
-        { withCredentials: true },
-      );
+      const response = await Axios.get("/api/personas-inactivas", {
+        withCredentials: true,
+      });
       const usuariosFromApi = response.data;
 
       const transformedUsers = usuariosFromApi.map((user) => {
@@ -371,10 +371,9 @@ const Dashboard = () => {
   const fetchDatoPersonas = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(
-        "/api/datos-personas",
-        { withCredentials: true },
-      );
+      const response = await Axios.get("/api/datos-personas", {
+        withCredentials: true,
+      });
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
         return {
@@ -391,17 +390,16 @@ const Dashboard = () => {
     }
   }, []);
 
-   const fetchDatoPersonasInactivas = useCallback(async () => {
+  const fetchDatoPersonasInactivas = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(
-        "/api/datos-personas-2",
-        { withCredentials: true },
-      );
+      const response = await Axios.get("/api/datos-personas-2", {
+        withCredentials: true,
+      });
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
         return {
-          total: nombre.total_miembros
+          total: nombre.total_miembros,
         };
       });
       setDatosPersonasInactivas(datos);
@@ -416,9 +414,7 @@ const Dashboard = () => {
   const fetchDatosGrafica = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(
-        "/api/datos-grafica",
-      );
+      const response = await Axios.get("/api/datos-grafica");
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
         return {
@@ -438,9 +434,9 @@ const Dashboard = () => {
   const fetchDatosGrafica2 = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await Axios.get(
-        "/api/datos-grafica-2", { withCredentials: true}
-      );
+      const response = await Axios.get("/api/datos-grafica-2", {
+        withCredentials: true,
+      });
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
         return {
@@ -495,11 +491,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDatoPersonasInactivas();
-  },[fetchDatoPersonasInactivas]);
+  }, [fetchDatoPersonasInactivas]);
 
   useEffect(() => {
     fetchPoblacion();
-  },[fetchPoblacion]);
+  }, [fetchPoblacion]);
 
   const familyHeads = useMemo(() => {
     return families.flatMap((f) =>
@@ -524,35 +520,41 @@ const Dashboard = () => {
 
     if (!id) {
       console.error("Miembro sin id_persona:", member);
-      alert("Error interno: miembro sin identificador.");
+      // Sustitución:
+      toast.error("Error de validación", {
+        description:
+          "El miembro seleccionado no tiene un identificador válido.",
+      });
       return;
     }
     try {
-      const { data } = await Axios.get(
-        `/api/personas/${id}`,
-      );
+      const { data } = await Axios.get(`/api/personas/${id}`);
 
       setSelectedHead(data); // 👉 ahora tienes TODOS los datos
       setModalType("editHead");
     } catch (error) {
       console.error("Error cargando datos para edición:", error);
-      alert("No se pudo cargar la información del jefe.");
+      toast.error("Error de carga", {
+        description:
+          "No se pudo obtener la información del jefe de calle. Reintente en unos momentos.",
+      });
     }
   }, []);
 
   const handleOpenViewMember = useCallback(async (member) => {
     const id = member.id_persona || member.id;
-
     if (!id) {
       console.error("Miembro sin id_persona:", member);
-      alert("Error interno: miembro sin identificador.");
+      // Sustitución:
+      toast.error("Error de validación", {
+        description:
+          "El miembro seleccionado no tiene un identificador válido.",
+      });
       return;
     }
 
     try {
-      const { data } = await Axios.get(
-        `/api/personas/${id}`,
-      );
+      const { data } = await Axios.get(`/api/personas/${id}`);
 
       setSelectedMember(data);
       setSelectedMemberFamily({
@@ -564,7 +566,10 @@ const Dashboard = () => {
       setModalType("viewMember");
     } catch (error) {
       console.error("Error cargando ficha:", error);
-      alert("No se pudo cargar la ficha del habitante.");
+      toast.error("Error de carga", {
+        description:
+          "No se pudo cargar la ficha del habitante. Reintente en unos momentos.",
+      });
     }
   }, []);
 
@@ -592,29 +597,33 @@ const Dashboard = () => {
     try {
       if (isNew) {
         try {
-          const response = await Axios.post(
-            "/api/registrar-jefe",
-            dataToSend,
-            { withCredentials: true },
-          );
+          const response = await Axios.post("/api/registrar-jefe", dataToSend, {
+            withCredentials: true,
+          });
 
           if (response.status === 202) {
-            alert(
-              "Solicitud enviada: Esperando aprobación de la administradora.",
-            );
+            // Solicitud pendiente (Info/Azul)
+            toast.info("Solicitud enviada", {
+              description:
+                "La información está en espera de aprobación por la administradora.",
+              duration: 6000,
+            });
           } else {
-            alert("Jefe de familia registrado con éxito!");
+            // Registro exitoso (Success/Verde)
+            toast.success("¡Registro completado!", {
+              description: "El jefe de familia ha sido guardado exitosamente.",
+            });
           }
         } catch (error) {
           console.error(error.response?.data?.message); // Esto te dirá el error exacto de SQL
         }
       } else {
-        await Axios.put(
-          `/api/editar-jefe/${familyHeadData.id}`,
-          dataToSend,
-          {withCredentials:true},
-        );
-        alert("Jefe de familia actualizado con éxito!");
+        await Axios.put(`/api/editar-jefe/${familyHeadData.id}`, dataToSend, {
+          withCredentials: true,
+        });
+        toast.success("¡Actualización completa!", {
+          description: "¡El jefe ha sido actualizado correctamente!.",
+        });
       }
       handleCloseModal();
       fetchFamiliesAndHeads();
@@ -623,11 +632,9 @@ const Dashboard = () => {
         "Error salvando/actualizando el familiar:",
         error.response?.data || error.message,
       );
-      alert(
-        `Error al guardar los datos: ${
-          error.response?.data?.message || error.message
-        }. Revisa la consola.`,
-      );
+      toast.error("Error al gurdar los datos", {
+        description: "Error al guardar los datos. Reintente en unos momentos.",
+      });
     }
   };
 
@@ -641,15 +648,16 @@ const Dashboard = () => {
 
     try {
       // 🔍 Buscamos los datos completos (cédula, carnet, etc.)
-      const { data } = await Axios.get(
-        `/api/personas/${id}`,
-      );
+      const { data } = await Axios.get(`/api/personas/${id}`);
 
       setSelectedMember(data); // Ahora sí tiene cedula, codigo_carnet, etc.
       setModalType("editMember");
     } catch (error) {
       console.error("Error cargando datos del miembro:", error);
-      alert("No se pudo obtener la información completa.");
+      toast.error("Error de carga", {
+        description:
+          "Error cargando datos del miembro. Reintente en unos momentos.",
+      });
     }
   }, []);
 
@@ -678,21 +686,25 @@ const Dashboard = () => {
           `/api/editar-miembro/${newMemberData.id_persona}`,
           dataToBackend,
         );
-        alert("¡Miembro actualizado con éxito!");
+        toast.success("Miembro actualizado", {
+          description: "¡Miembro actualizado con éxito!.",
+        });
       } else {
         // ➕ MODO AGREGAR
-        await Axios.post(
-          "/api/agregar-miembro",
-          dataToBackend,
-        );
-        alert("¡Miembro agregado con éxito!");
+        await Axios.post("/api/agregar-miembro", dataToBackend);
+        toast.success("Miembro agregado", {
+          description: "¡Miembro agregado con éxito!.",
+        });
       }
 
       setModalType(null);
       fetchFamilies();
     } catch (error) {
       console.error("Error al procesar:", error.response?.data);
-      alert("Error: " + (error.response?.data?.message || "Revisa la consola"));
+      toast.error("Error de carga", {
+        description:
+          "No se pudo obtener la información del jefe de calle. Reintente en unos momentos.",
+      });
     }
   };
 
@@ -714,11 +726,10 @@ const Dashboard = () => {
     };
 
     try {
-      await Axios.put(
-        `/api/editar-miembro/${idPersona}`,
-        dataToBackend,
-      );
-      alert("Datos actualizados");
+      await Axios.put(`/api/editar-miembro/${idPersona}`, dataToBackend);
+      toast.success("Datos actualizados", {
+        description: "¡Datos actualizados!.",
+      });
       setModalType(null);
       fetchFamilies(); // Recargar la lista
     } catch (error) {
@@ -727,44 +738,51 @@ const Dashboard = () => {
   };
   const handleArchiveHead = async (familyHeadData) => {
     try {
-
       // Llamamos a la nueva ruta de eliminar-persona
       await Axios.put(
         `/api/eliminar-persona/${familyHeadData.id}`,
         {},
-        {withCredentials: true,}
+        { withCredentials: true },
       );
-
-      alert(
-        `¡Usuario ${familyHeadData.primerNombre || familyHeadData.name} archivado con éxito!`,
-      );
+      toast.success("Usuario archivado", {
+        description: `El registro de ${familyHeadData.primerNombre || familyHeadData.name} se movió al archivo correctamente.`,
+        // Podemos añadir un icono de caja o archivo si quieres
+        icon: "📦",
+        duration: 4000,
+      });
       fetchFamiliesAndHeads(); // Recarga la lista principal
     } catch (error) {
       console.error("Error al archivar:", error);
-      alert("Error al archivar. Revisa la consola.");
+      toast.error("Error de carga", {
+        description: "Error al archiar. Reintente en unos momentos.",
+      });
     }
   };
 
-    const handleActive = async (familyHeadData) => {
+  const handleActive = async (familyHeadData) => {
     try {
-
       // Llamamos a la nueva ruta de eliminar-persona
       await Axios.put(
         `/api/restaurar-persona/${familyHeadData.id}`,
         {},
-        {withCredentials: true,}
+        { withCredentials: true },
       );
 
-      alert(
-        `¡Usuario ${familyHeadData.primerNombre || familyHeadData.name} activado con éxito!`,
-      );
+      // Sustitución del alert por un toast de éxito con nombre dinámico
+      toast.success("Usuario archivado", {
+        description: `El registro de ${familyHeadData.primerNombre || familyHeadData.name} se movió al archivo correctamente.`,
+        // Podemos añadir un icono de caja o archivo si quieres
+        icon: "✅",
+        duration: 4000,
+      });
       fetchFamiliesAndHeads(); // Recarga la lista principal
     } catch (error) {
       console.error("Error al archivar:", error);
-      alert("Error al archivar. Revisa la consola.");
+      toast.error("Error de carga", {
+        description: "Error al archivar. Reintente en unos momentos.",
+      });
     }
   };
-
 
   const location = useLocation();
   const getActiveLink = () => {
@@ -862,7 +880,7 @@ const Dashboard = () => {
           element={
             <ArchivedView
               usuariosInactivos={usuariosInactivos}
-              handleActive= {handleActive}
+              handleActive={handleActive}
               toggleSidebar={toggleSidebar}
             />
           }
@@ -879,14 +897,9 @@ const Dashboard = () => {
         />
         {/* Ruta comodín si no 
  se encuentra la ruta interna */}
-         <Route
+        <Route
           path="datos"
-          element={
-            <Datos
-              poblacion={poblacion}
-              onAdd={handleOpenAddHead}
-            />
-          }
+          element={<Datos poblacion={poblacion} onAdd={handleOpenAddHead} />}
         />
         <Route
           path="*"

@@ -861,4 +861,116 @@ Router.get("/personas", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+Router.put("/update-profile-secure", verificarToken, async (req, res) => {
+  try {
+    const { id_persona } = req.user;
+    const {
+      oldPassword,
+      newPassword,
+      confirmPassword,
+      email,
+      telefono,
+      ...datosPerfil
+    } = req.body;
+
+    const userRef = db.collection("usuarios").doc(String(id_persona));
+    const personaRef = db.collection("personas").doc(String(id_persona));
+
+    const userDoc = await userRef.get();
+    if (!userDoc.exists)
+      return res.status(404).json({ message: "Usuario no existe" });
+
+    /* =============================
+       VALIDACIÓN DE PASSWORD
+    ============================== */
+    if (newPassword) {
+      if (!oldPassword)
+        return res.status(400).json({ message: "Debe ingresar la contraseña actual" });
+
+      if (newPassword !== confirmPassword)
+        return res.status(400).json({ message: "Las contraseñas nuevas no coinciden" });
+
+      const isMatch = await bcrypt.compare(oldPassword, userDoc.data().password);
+      if (!isMatch)
+        return res.status(401).json({ message: "La contraseña actual es incorrecta" });
+    }
+
+    /* =============================
+       BATCH UPDATE
+    ============================== */
+    const batch = db.batch();
+
+    // Usuarios
+    const authUpdate = {};
+    if (email) authUpdate.email = email;
+    if (newPassword) authUpdate.password = await bcrypt.hash(newPassword, 10);
+
+    if (Object.keys(authUpdate).length > 0) {
+      batch.update(userRef, authUpdate);
+    }
+
+    // Personas
+    const personaUpdate = {
+      ...datosPerfil,
+      ...(telefono && { telefono })
+    };
+
+    // Eliminar undefined
+    Object.keys(personaUpdate).forEach(
+      (k) => personaUpdate[k] === undefined && delete personaUpdate[k]
+    );
+
+    if (Object.keys(personaUpdate).length > 0) {
+      batch.update(personaRef, personaUpdate);
+    }
+
+    await batch.commit();
+
+    res.json({ message: "Perfil actualizado correctamente" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error al actualizar" });
+  }
+});
+
+Router.get("/profile-settings", verificarToken, async (req, res) => {
+  try {
+    const { id_persona } = req.user; // ID numérico o string
+
+    // Ejecutamos ambas consultas en paralelo para máxima velocidad
+    const [personaDoc, usuarioDoc] = await Promise.all([
+      db.collection("personas").doc(String(id_persona)).get(),
+      db.collection("usuarios").doc(String(id_persona)).get()
+    ]);
+
+    if (!personaDoc.exists) return res.status(404).json({ message: "No se encontró el perfil" });
+
+    const p = personaDoc.data();
+    const u = usuarioDoc.exists ? usuarioDoc.data() : {};
+
+    // Obtener vivienda desde el núcleo de forma directa
+    let vivienda = "No asignada";
+    if (p.id_nucleo) {
+      const nucleoDoc = await db.collection("nucleos_familiares").doc(String(p.id_nucleo)).get();
+      if (nucleoDoc.exists) vivienda = nucleoDoc.data().vivienda;
+    }
+
+    res.json({
+      primer_nombre: p.primer_nombre || "",
+      segundo_nombre: p.segundo_nombre || "",
+      primer_apellido: p.primer_apellido || "",
+      segundo_apellido: p.segundo_apellido || "",
+      cedula: p.cedula || "",
+      nacionalidad: p.nacionalidad || "Venezolana",
+      telefono: p.telefono || "",
+      nombre_familia: p.nombre_familia || "",
+      email: u.email || "", // Traído de la tabla usuarios
+      vivienda: vivienda
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error de servidor" });
+  }
+});
+
 export default Router;

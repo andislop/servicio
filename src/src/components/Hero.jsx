@@ -129,7 +129,7 @@ const Hero = () => {
 
                       <div className="mt-4">
                         <Link
-                          to="/"
+                          to="/noticias"
                           className="inline-block bg-sky-700/75 hover:bg-sky-700 text-white py-2 px-6 rounded-lg transition-all hover:scale-105 shadow-md shadow-black/20"
                         >
                           Ver más noticias

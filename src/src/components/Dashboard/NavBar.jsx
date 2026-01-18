@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, LogOut, Settings, Menu, Eye, X } from "lucide-react";
+import {toast} from "sonner";
 import Axios from "axios";
 
 const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
@@ -43,7 +44,9 @@ const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
       fetchSolicitudes();
     } catch (err) {
       console.error("Error al procesar:", err);
-      alert("Error al procesar");
+      toast.error("Error al procesar", {
+    description: "Error al procesar. Reintente en unos momentos.",
+  });
     }
   };
 
@@ -159,7 +162,13 @@ const Navbar = ({ nombreUsuario, onToggleSidebar }) => {
 
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-48 rounded-lg border bg-white py-1 shadow-xl z-50">
-                <button className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50">
+                <button
+                  onClick={() => {
+                    navigate("/dashboard/settings"); // Esta es la ruta que se ve en tu imagen 3
+                    setIsProfileOpen(false); // Cierra el menú desplegable
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                >
                   <Settings className="h-4 w-4" /> Perfil
                 </button>
                 <div className="my-1 border-t border-gray-100"></div>

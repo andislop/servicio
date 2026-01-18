@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
   const isEdit = Boolean(initialData);
@@ -37,23 +38,23 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
   useEffect(() => {
     if (initialData) {
       setFormData({
-    ...initialData,
-    // Corregimos posibles errores de nombres provenientes del modal
-    mercado: initialData.mercado ?? 0,
-    segundoNombre: initialData.segundoNombre || null,
-    segundoApellido: initialData.segundoApellido || null,
-    
-    // IMPORTANTE: Convertir a booleano real, no string "false"
-    esManzanero: initialData.esManzanero === true,
-    esJefeCalle: initialData.esJefeCalle === true,
+        ...initialData,
+        // Corregimos posibles errores de nombres provenientes del modal
+        mercado: initialData.mercado ?? 0,
+        segundoNombre: initialData.segundoNombre || null,
+        segundoApellido: initialData.segundoApellido || null,
 
-    // Asegurar que el password viaje con el nombre correcto (una 's' menos)
-    password: initialData.password || null,
-    
-    // Formatear fecha si existe
-    fechaNacimiento: initialData.fechaNacimiento 
-      ? initialData.fechaNacimiento.split("T")[0] 
-      : null,
+        // IMPORTANTE: Convertir a booleano real, no string "false"
+        esManzanero: initialData.esManzanero === true,
+        esJefeCalle: initialData.esJefeCalle === true,
+
+        // Asegurar que el password viaje con el nombre correcto (una 's' menos)
+        password: initialData.password || null,
+
+        // Formatear fecha si existe
+        fechaNacimiento: initialData.fechaNacimiento
+          ? initialData.fechaNacimiento.split("T")[0]
+          : null,
       });
       if (initialData.vivienda?.toLowerCase().includes("torre"))
         setPerteneceATorre("si");
@@ -84,9 +85,10 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
     if (dataToSend.esJefeCalle) {
       // Validar que realmente escribió algo
       if (!dataToSend.email || !dataToSend.password) {
-        alert(
-          "Por favor, ingrese el correo y la contraseña para el Jefe de Calle."
-        );
+        toast.error("Error de carga", {
+          description:
+            "Por favor ingrese el correo y contraseña para el jefe de calle. Reintente en unos momentos.",
+        });
         return;
       }
       // Validar seguridad
@@ -95,7 +97,10 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
         !passValidation.hasUpper ||
         !passValidation.hasNumber
       ) {
-        alert("La contraseña no cumple los requisitos de seguridad.");
+        toast.error("Contraseña no cumple", {
+          description:
+            "La contraseña no cumple con los requisitos. Reintente en unos momentos.",
+        });
         return;
       }
     } else {
