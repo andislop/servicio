@@ -91,10 +91,6 @@ const Manzaneros = ({ manzaneros, onAdd, onEdit, onViewMember, onArchive }) => {
         </div>
         
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto">
-          <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium shadow-sm w-full sm:w-auto">
-            <Download className="h-5 w-5" />
-            <span>Exportar</span>
-          </button>
           <button onClick={onAdd} className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-lg shadow-blue-500/50 w-full sm:w-auto">
             <Plus className="h-5 w-5" />
             <span>Agregar Manzanero</span>
@@ -165,7 +161,7 @@ const Manzaneros = ({ manzaneros, onAdd, onEdit, onViewMember, onArchive }) => {
                     <MapPin className="h-3 w-3 inline-block mr-1 text-red-400" /> 
                     {head.vivienda}</p>
                 <p className="text-xs text-gray-600 truncate">
-                    Total de mimebros: {head.totalMiembros} 
+                    Total de miembros: {head.totalMiembros} 
                 </p>
               </div>
             </div>

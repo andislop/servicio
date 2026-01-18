@@ -2,7 +2,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import pool from "./src/bd.js"
+import pool from "./src/config/bd.js"
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
@@ -25,18 +25,20 @@ app.use(cors({
 app.use(express.json());
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 
 //RUTAS
 import rutaUsuarios from '././src/apis/usuarios.js';
 import rutaImagenes from './src/apis/imagenes.js';
 import rutaJefes from './src/apis/jefes.js';
+import rutaNucleos from './src/apis/nucleos.js';
 
 
 app.use("/api", rutaUsuarios);
 app.use("/api", rutaImagenes);
 app.use("/api", rutaJefes);
+app.use("/api", rutaNucleos);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

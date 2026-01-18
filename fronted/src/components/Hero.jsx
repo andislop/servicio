@@ -19,7 +19,7 @@ const Hero = () => {
     setError(null);
     try {
       // ... (Lógica de fetch, filtrado y setImages)
-      const response = await fetch(`${API_URL}/api/items`);
+      const response = await fetch(`${API_URL}/api/items1`);
       if (!response.ok) {
         const errorBody = await response
           .json()

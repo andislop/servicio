@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import NavBar from "./NavBar";
 import Manzaneros from "./Manzaneros";
 import AddMemberModal from "./AddMemberModal";
+import Datos from "./Datos";
 
 // Se importa Link, aunque no se usa directamente aquí, es buena práctica.
 // 🚨 AJUSTE DE RUTAS: Usaremos el punto '.' para la ruta base anidada
@@ -49,8 +50,8 @@ const links = [
   },
   {
     id: 6,
-    title: "Configuración",
-    link: "settings",
+    title: "Datos",
+    link: "datos",
   },
   {
     id: 7,
@@ -59,8 +60,8 @@ const links = [
   },
   {
     id: 8,
-    title: "María .i.",
-    link: "profile",
+    title: "Configuración",
+    link: "settings",
   },
   {
     id: 9,
@@ -74,11 +75,14 @@ const Dashboard = () => {
   const [families, setFamilies] = useState([]);
   const [nucleo, setNucleo] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [usuariosInactivos, setUsuariosInactivos] = useState([]);
   const [manzaneros, setManzaneros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nombreUsuario, setNombreUsuario] = useState([]);
   const [datoPersonas, setDatoPersonas] = useState([]);
+  const [datosPersonasInactivas, setDatosPersonasInactivas] = useState([]);
   const [datosGrafica, setDatosGrafica] = useState([]);
+  const [poblacion, setPoblacion] = useState([]);
   const [datosGrafica2, setDatosGrafica2] = useState([]);
   const [modalType, setModalType] = useState(null);
   const [selectedHead, setSelectedHead] = useState(null);
@@ -98,34 +102,46 @@ const Dashboard = () => {
       const response = await Axios.get("http://localhost:3001/api/jefes", {
         withCredentials: true,
       });
+
       const jefesFromApi = response.data;
+
       const transformedFamilies = jefesFromApi.map((jefe) => {
+        // 1. Priorizamos id_persona que viene de Firebase
+        const familyId = jefe.id_persona;
         const isHead = true;
         const memberStatus = jefe.estado || "Activo";
-        const familyId = jefe.id_persona || jefe.id;
+
+        // 2. Manejo de la fecha de nacimiento (Firebase Timestamp)
+        let birthDateStr = "N/A";
+        if (jefe.fecha_nacimiento && jefe.fecha_nacimiento.seconds) {
+          birthDateStr = new Date(jefe.fecha_nacimiento.seconds * 1000)
+            .toISOString()
+            .split("T")[0];
+        }
 
         return {
           id: familyId,
           activeMembers: memberStatus === "Activo" ? 1 : 0,
-          registeredDate:
-            jefe.registeredDate || new Date().toISOString().split("T")[0],
+          // Usamos la fecha de nacimiento procesada o la de registro si existiera
+          registeredDate: birthDateStr,
           members: [
             {
-              id: jefe.id,
+              id: familyId, // Consistencia con el ID alfanumérico
               primerNombre: jefe.primer_nombre ?? "",
               primerApellido: jefe.primer_apellido ?? "",
-              vivienda: jefe.vivienda ?? "",
-              rol: jefe.rol ?? "",
-              total: jefe.totalJefes ?? "",
+              vivienda: jefe.vivienda ?? "Sin asignar", // Viene procesado por la API
+              rol: jefe.rol ?? "Jefe",
+              total: jefe.totalJefes ?? 1,
               isHead,
+              // Ajustamos el avatar para usar el nombre real que viene de Firebase
               avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${(
-                jefe.nombre || "J"
-              )
-                .split(" ")
-                .map((n) => n[0])
-
-                .join("")}`,
-              raw: jefe,
+                jefe.primer_nombre || "J"
+              ).charAt(0)}${(jefe.primer_apellido || "").charAt(0)}`,
+              raw: {
+                ...jefe,
+                // Convertimos el timestamp a string para el formulario de edición
+                fecha_nacimiento: birthDateStr,
+              },
             },
           ],
         };
@@ -135,10 +151,10 @@ const Dashboard = () => {
     } catch (error) {
       console.error(
         "Error al cargar datos desde la API:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       alert(
-        "Error al conectar con la API o al cargar datos. Revisa la consola para más detalles."
+        "Error al cargar datos. Asegúrate de haber creado el índice en Firebase.",
       );
       setFamilies([]);
     } finally {
@@ -175,6 +191,87 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Error al cargar usuarios:", error);
       setUsuarios([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  
+  const fetchPoblacion = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get("http://localhost:3001/api/poblacion",{
+        withCredentials: true
+      });
+      const usuariosFromApi = response.data;
+
+      const transformedUsers = usuariosFromApi.map((user) => {
+        // Generamos las iniciales para el avatar
+        const initials = (user.primer_nombre || "U")
+          .split(" ")
+          .map((n) => n[0])
+          .join("");
+
+        return {
+          id: user.id_persona,
+          email: user.email,
+          primer_nombre: user.primer_nombre || "Usuario sin nombre",
+          segundo_nombre: user.segundo_nombre || "",
+          primer_apellido: user.primer_apellido || "Usuario sin apellido",
+          segundo_apellido: user.segundo_apellido || "",
+          categoria: user.categoria,
+          edad: user.edad,
+          cedula: user.cedula || "Usuario sin cedula",
+          role: user.rol || "No asignado",
+          vivienda: user.vivienda || "N/A",
+          // Estructura compatible con tus otros componentes
+          avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+          raw: user, // Guardamos el objeto original por si acaso
+        };
+      });
+
+      setPoblacion(transformedUsers);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+      setPoblacion([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchUsersInactivos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get(
+        "http://localhost:3001/api/personas-inactivas",
+        { withCredentials: true },
+      );
+      const usuariosFromApi = response.data;
+
+      const transformedUsers = usuariosFromApi.map((user) => {
+        // Generamos las iniciales para el avatar
+        const initials = (user.primer_nombre || "U")
+          .split(" ")
+          .map((n) => n[0])
+          .join("");
+
+        return {
+          id: user.id_persona,
+          name: user.primer_nombre || "Usuario sin nombre",
+          lastname: user.primer_apellido || "Usuario sin nombre",
+          cedula: user.cedula || "",
+          rol: user.rol || "No asignado",
+          vivienda: user.vivienda || "N/A",
+          // Estructura compatible con tus otros componentes
+          avatar: `https://placehold.co/100x100/3b82f6/ffffff?text=${initials}`,
+          raw: user, // Guardamos el objeto original por si acaso
+        };
+      });
+
+      setUsuariosInactivos(transformedUsers);
+    } catch (error) {
+      console.error("Error al cargar usuarios:", error);
+      setUsuariosInactivos([]);
     } finally {
       setLoading(false);
     }
@@ -276,7 +373,7 @@ const Dashboard = () => {
     try {
       const response = await Axios.get(
         "http://localhost:3001/api/datos-personas",
-        { withCredentials: true }
+        { withCredentials: true },
       );
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
@@ -294,11 +391,33 @@ const Dashboard = () => {
     }
   }, []);
 
+   const fetchDatoPersonasInactivas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await Axios.get(
+        "http://localhost:3001/api/datos-personas-2",
+        { withCredentials: true },
+      );
+      const nombreFromApi = response.data;
+      const datos = nombreFromApi.map((nombre) => {
+        return {
+          total: nombre.total_miembros
+        };
+      });
+      setDatosPersonasInactivas(datos);
+    } catch (error) {
+      console.error("Error al cargar daatos", error);
+      setDatosPersonasInactivas([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchDatosGrafica = useCallback(async () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-grafica"
+        "http://localhost:3001/api/datos-grafica",
       );
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
@@ -320,7 +439,7 @@ const Dashboard = () => {
     setLoading(true);
     try {
       const response = await Axios.get(
-        "http://localhost:3001/api/datos-grafica-2"
+        "http://localhost:3001/api/datos-grafica-2", { withCredentials: true}
       );
       const nombreFromApi = response.data;
       const datos = nombreFromApi.map((nombre) => {
@@ -370,6 +489,18 @@ const Dashboard = () => {
     fetchDatosGrafica2();
   }, [fetchDatosGrafica2]);
 
+  useEffect(() => {
+    fetchUsersInactivos();
+  }, [fetchUsersInactivos]);
+
+  useEffect(() => {
+    fetchDatoPersonasInactivas();
+  },[fetchDatoPersonasInactivas]);
+
+  useEffect(() => {
+    fetchPoblacion();
+  },[fetchPoblacion]);
+
   const familyHeads = useMemo(() => {
     return families.flatMap((f) =>
       f.members
@@ -379,7 +510,7 @@ const Dashboard = () => {
           nombreFamilia: f.name,
           address: f.address,
           notes: f.notes,
-        }))
+        })),
     );
   }, [families]);
   // [Lógica para modales y guardar/archivar... se mantienen igual]
@@ -398,7 +529,7 @@ const Dashboard = () => {
     }
     try {
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`
+        `http://localhost:3001/api/personas/${id}`,
       );
 
       setSelectedHead(data); // 👉 ahora tienes TODOS los datos
@@ -420,7 +551,7 @@ const Dashboard = () => {
 
     try {
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`
+        `http://localhost:3001/api/personas/${id}`,
       );
 
       setSelectedMember(data);
@@ -464,12 +595,12 @@ const Dashboard = () => {
           const response = await Axios.post(
             "http://localhost:3001/api/registrar-jefe",
             dataToSend,
-            { withCredentials: true }
+            { withCredentials: true },
           );
 
           if (response.status === 202) {
             alert(
-              "Solicitud enviada: Esperando aprobación de la administradora."
+              "Solicitud enviada: Esperando aprobación de la administradora.",
             );
           } else {
             alert("Jefe de familia registrado con éxito!");
@@ -480,7 +611,8 @@ const Dashboard = () => {
       } else {
         await Axios.put(
           `http://localhost:3001/api/editar-jefe/${familyHeadData.id}`,
-          dataToSend
+          dataToSend,
+          {withCredentials:true},
         );
         alert("Jefe de familia actualizado con éxito!");
       }
@@ -489,12 +621,12 @@ const Dashboard = () => {
     } catch (error) {
       console.error(
         "Error salvando/actualizando el familiar:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       alert(
         `Error al guardar los datos: ${
           error.response?.data?.message || error.message
-        }. Revisa la consola.`
+        }. Revisa la consola.`,
       );
     }
   };
@@ -510,7 +642,7 @@ const Dashboard = () => {
     try {
       // 🔍 Buscamos los datos completos (cédula, carnet, etc.)
       const { data } = await Axios.get(
-        `http://localhost:3001/api/personas/${id}`
+        `http://localhost:3001/api/personas/${id}`,
       );
 
       setSelectedMember(data); // Ahora sí tiene cedula, codigo_carnet, etc.
@@ -544,14 +676,14 @@ const Dashboard = () => {
         // 📝 MODO EDICIÓN
         await Axios.put(
           `http://localhost:3001/api/editar-miembro/${newMemberData.id_persona}`,
-          dataToBackend
+          dataToBackend,
         );
         alert("¡Miembro actualizado con éxito!");
       } else {
         // ➕ MODO AGREGAR
         await Axios.post(
           "http://localhost:3001/api/agregar-miembro",
-          dataToBackend
+          dataToBackend,
         );
         alert("¡Miembro agregado con éxito!");
       }
@@ -584,7 +716,7 @@ const Dashboard = () => {
     try {
       await Axios.put(
         `http://localhost:3001/api/editar-miembro/${idPersona}`,
-        dataToBackend
+        dataToBackend,
       );
       alert("Datos actualizados");
       setModalType(null);
@@ -593,39 +725,46 @@ const Dashboard = () => {
       console.error("Error al editar:", error.response?.data);
     }
   };
-  const handleArchiveHead = async (head) => {
-    const apiData = {
-      nombre: head.name ?? head.nombre ?? "",
-      fechaNacimiento: head.dob ?? head.fechaNacimiento ?? null,
-      ocupacion: head.occupation ?? head.ocupacion ?? null,
-      email: head.email ?? null,
-      telefono: head.phone ?? head.telefono ?? null,
-      estado: "Inactivo",
-      nombreFamilia: head.nombreFamilia ?? head.familyName ?? "",
-      direccion: head.address ?? head.direccion ?? null,
-      notas: head.notes ?? head.notas ?? null,
-    };
-
+  const handleArchiveHead = async (familyHeadData) => {
     try {
-      await Axios.put(`${API_BASE_URL}/${head.id}`, apiData);
-      alert(
-        `Jefe de familia ${
-          head.name || head.nombre
-        } archivado con éxito (estado Inactivo)!`
+
+      // Llamamos a la nueva ruta de eliminar-persona
+      await Axios.put(
+        `http://localhost:3001/api/eliminar-persona/${familyHeadData.id}`,
+        {},
+        {withCredentials: true,}
       );
-      fetchFamiliesAndHeads();
+
+      alert(
+        `¡Usuario ${familyHeadData.primerNombre || familyHeadData.name} archivado con éxito!`,
+      );
+      fetchFamiliesAndHeads(); // Recarga la lista principal
     } catch (error) {
-      console.error(
-        "Error al archivar el familiar:",
-        error.response?.data || error.message
-      );
-      alert(
-        `Error al archivar: ${
-          error.response?.data?.message || error.message
-        }. Revisa la consola.`
-      );
+      console.error("Error al archivar:", error);
+      alert("Error al archivar. Revisa la consola.");
     }
-  }; // Función para determinar la vista actual y pasarla al Sidebar para resaltar el enlace
+  };
+
+    const handleActive = async (familyHeadData) => {
+    try {
+
+      // Llamamos a la nueva ruta de eliminar-persona
+      await Axios.put(
+        `http://localhost:3001/api/restaurar-persona/${familyHeadData.id}`,
+        {},
+        {withCredentials: true,}
+      );
+
+      alert(
+        `¡Usuario ${familyHeadData.primerNombre || familyHeadData.name} activado con éxito!`,
+      );
+      fetchFamiliesAndHeads(); // Recarga la lista principal
+    } catch (error) {
+      console.error("Error al archivar:", error);
+      alert("Error al archivar. Revisa la consola.");
+    }
+  };
+
 
   const location = useLocation();
   const getActiveLink = () => {
@@ -641,7 +780,7 @@ const Dashboard = () => {
         // 1. Si el link es '.', coincide con la ruta base limpia (que sería '')
         (l.link === "." && cleanPath === "") ||
         // 2. Si el link es un nombre de ruta (ej: 'family-heads'), coincide con el path limpio
-        l.link === cleanPath
+        l.link === cleanPath,
     );
     return activeLink ? activeLink.title : "";
   }; // Usamos el título del enlace activo para resaltarlo en el Sidebar
@@ -669,6 +808,7 @@ const Dashboard = () => {
               familyHeads={familyHeads}
               nucleo={nucleo}
               datoPersonas={datoPersonas}
+              datosPersonasInactivas={datosPersonasInactivas}
               datosGrafica={datosGrafica}
               datosGrafica2={datosGrafica2}
             />
@@ -694,6 +834,7 @@ const Dashboard = () => {
             <FamilyNucleusView
               nucleo={nucleo}
               onAdd={handleOpenAddMember}
+              onArchive={handleArchiveHead}
               onViewMember={handleOpenViewMember}
               onEdit={handleOpenEditHead}
               onEditMember={handleEditMember}
@@ -718,7 +859,13 @@ const Dashboard = () => {
         {/* Ruta: /dashboard/archived */}
         <Route
           path="archived"
-          element={<ArchivedView toggleSidebar={toggleSidebar} />}
+          element={
+            <ArchivedView
+              usuariosInactivos={usuariosInactivos}
+              handleActive= {handleActive}
+              toggleSidebar={toggleSidebar}
+            />
+          }
         />
         {/* Ruta: /dashboard/settings */}
         <Route
@@ -732,6 +879,15 @@ const Dashboard = () => {
         />
         {/* Ruta comodín si no 
  se encuentra la ruta interna */}
+         <Route
+          path="datos"
+          element={
+            <Datos
+              poblacion={poblacion}
+              onAdd={handleOpenAddHead}
+            />
+          }
+        />
         <Route
           path="*"
           element={<DashboardView toggleSidebar={toggleSidebar} />}

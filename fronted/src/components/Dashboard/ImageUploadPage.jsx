@@ -31,7 +31,7 @@ function ImageUploadPage() {
         formData.append('title', title);
 
         try {
-            const response = await fetch(`${API_URL}/api/upload`, {
+            const response = await fetch(`${API_URL}/api/upload1`, {
                 method: 'POST',
                 body: formData,
             });

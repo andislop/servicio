@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useMemo}from "react";
 import { Users, Archive, User } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -32,6 +32,7 @@ const DashboardView = ({
   datoPersonas,
   datosGrafica,
   datosGrafica2,
+  datosPersonasInactivas
 }) => {
   //Para saber cuantos jefes hay en el sistemea
   const jefeFamilia = familyHeads.filter((f) => f.total).length;
@@ -40,11 +41,13 @@ const DashboardView = ({
     f.members.some((m) => m.isHead)
   ).length;
 
-  const FAMILY_GROWTH_DATA = datosGrafica.map((item) => ({
-    name: item.torre, // Lo que aparecerá en el eje X (Ej: "Torre 2")
-    members: item.total, // La altura de la barra azul
-    families: item.cantidad_familias || 0, // Si no tienes este dato, puedes poner 0 o quitar la barra
+const FAMILY_GROWTH_DATA = useMemo(() => {
+  return datosGrafica.map((item) => ({
+    name: item.torre, 
+    members: item.total, 
+    families: item.cantidad_familias || 0, 
   }));
+}, [datosGrafica]); // Solo se recalcula si datosGrafica cambia
 
   const ROLE_DISTRIBUTION_DATA = React.useMemo(() => {
     return datosGrafica2.map((item) => ({
@@ -53,6 +56,7 @@ const DashboardView = ({
     }));
   }, [datosGrafica2]);
 
+  const personasInactivas = datosPersonasInactivas?.[0]?.total || 0;
   const totalPersonas = datoPersonas?.[0]?.total|| 0;
   const promedioPersonas = datoPersonas?.[0]?.promedio || 0;
 
@@ -94,7 +98,7 @@ const DashboardView = ({
 
           <MetriCard
             title="Registros Archivados"
-            value={METRICS_DATA.archivedRecords}
+            value={personasInactivas}
             icon={Archive}
             color="red"
             details={
@@ -164,7 +168,7 @@ const DashboardView = ({
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
-                  data={ROLE_DISTRIBUTION_DATA}
+                  data={ROLE_DISTRIBUTION_DATA.filter(d => d.value > 0)}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}

@@ -1,708 +1,425 @@
 import express from "express";
-import pool from "../bd.js";
+import pool from "../config/bd.js";
+import db from "../config/firebase.js";
+import admin from "firebase-admin";
 import verificarToken from "../Middleware/autenticación.js";
 const Router = express.Router();
 
-// Api para obtener jefes de familia
-// Agregamos 'verificarToken' para saber quién pide la información
 Router.get("/jefes", verificarToken, async (req, res) => {
   try {
     const { rol, id_persona } = req.user;
+    
+    // Filtro base: solo personas con rol Jefe y status Activo
+    let jefesQuery = db.collection("personas")
+      .where("rol", "==", "Jefe")
+      .where("status", "==", "Activo");
+    
+    if (rol === "Jefe") {
+      const jefeSnapshot = await db.collection("personas").doc(String(id_persona)).get();
+      const idNucleoPropio = jefeSnapshot.data()?.id_nucleo;
+      const nucleoPropioDoc = await db.collection("nucleos_familiares").doc(String(idNucleoPropio)).get();
+      const viviendaPropia = nucleoPropioDoc.data()?.vivienda;
 
-    let query;
-    let params = [];
-
-    if (rol === "Administrador") {
-      query = `
-        SELECT 
-          p.id_persona, p.primer_nombre, p.primer_apellido, 
-          n.vivienda, p.rol,
-          (SELECT COUNT(*) FROM personas WHERE rol = 'Jefe') AS totalJefes
-        FROM personas p
-        LEFT JOIN nucleos_familiares n ON p.id_nucleo = n.id_nucleo
-        WHERE p.rol = "Jefe"
-        ORDER BY p.id_persona ASC`;
-    } else if (rol === "Jefe") {
-      query = `
-        SELECT 
-          p.id_persona, p.primer_nombre, p.primer_apellido, 
-          n.vivienda, p.rol,
-          (SELECT COUNT(p2.id_persona) 
-           FROM personas p2 
-           JOIN nucleos_familiares n2 ON p2.id_nucleo = n2.id_nucleo 
-           WHERE p2.rol = 'Jefe' AND n2.vivienda = n.vivienda) AS totalJefes
-        FROM personas p
-        JOIN nucleos_familiares n ON p.id_nucleo = n.id_nucleo
-        WHERE p.rol = "Jefe" 
-        AND n.vivienda = (
-          SELECT v.vivienda FROM nucleos_familiares v 
-          JOIN personas p_propia ON v.id_nucleo = p_propia.id_nucleo 
-          WHERE p_propia.id_persona = ?
-        )
-        ORDER BY p.id_persona ASC`;
-      params = [id_persona];
+      const nucleosMismaVivienda = await db.collection("nucleos_familiares")
+        .where("vivienda", "==", viviendaPropia).get();
+      const idsNucleos = nucleosMismaVivienda.docs.map(doc => doc.data().id_nucleo);
+      
+      jefesQuery = jefesQuery.where("id_nucleo", "in", idsNucleos);
     }
 
-    const [rows] = await pool.execute(query, params);
+    // Nota: Es posible que Firebase pida un nuevo índice compuesto para status + rol + id_persona
+    const snapshot = await jefesQuery.orderBy("id_persona", "asc").get();
+    
+    const nucleosSnapshot = await db.collection("nucleos_familiares").get();
+    const viviendasMap = {};
+    nucleosSnapshot.forEach(doc => viviendasMap[doc.data().id_nucleo] = doc.data().vivienda);
+
+    const rows = snapshot.docs.map(doc => {
+      const p = doc.data();
+      return {
+        ...p,
+        vivienda: viviendasMap[p.id_nucleo] || "N/A",
+        totalJefes: snapshot.size 
+      };
+    });
+
     res.status(200).json(rows);
   } catch (err) {
-    res.status(500).json({ message: "Error interno" });
-  }
-});
-
-// Api para enviar jefes de familia
-Router.post("/jefes", async (req, res) => {
-  const {
-    nombre,
-    fechaNacimiento,
-    ocupacion,
-    email,
-    telefono,
-    estado,
-    nombreFamilia,
-    direccion,
-    notas,
-  } = req.body;
-
-  if (!nombre || !nombreFamilia) {
-    return res
-      .status(400)
-      .json({ message: "nombre y nombreFamilia son requeridos" });
-  }
-
-  try {
-    const query = `INSERT INTO jefes_familia 
-      (nombre, fechaNacimiento, ocupacion, email, telefono, estado, nombreFamilia, direccion, notas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const [result] = await pool.execute(query, [
-      nombre,
-      fechaNacimiento || null,
-      ocupacion || null,
-      email || null,
-      telefono || null,
-      estado || null,
-      nombreFamilia,
-      direccion || null,
-      notas || null,
-    ]);
-
-    res.status(201).json({ message: "Creado", id: result.insertId });
-  } catch (err) {
-    console.error("Error POST /api/jefes:", err);
-    res.status(500).json({ message: "Error al crear jefe de familia" });
-  }
-});
-
-// Api para actualizar jefes de familia
-Router.put("/jefes/:id", async (req, res) => {
-  const { id } = req.params;
-  // Aceptamos tanto claves en español que enviará el frontend (nombre, fechaNacimiento...)
-  // como claves en camelCase por si alguna parte las envía así.
-  const {
-    nombre,
-    name,
-    fechaNacimiento,
-    dob,
-    ocupacion,
-    occupation,
-    email,
-    telefono,
-    phone,
-    estado,
-    status,
-    nombreFamilia,
-    familyName,
-    direccion,
-    address,
-    notas,
-    notes,
-  } = req.body;
-
-  // Mapear valores preferidos (primero el español)
-  const finalNombre = nombre ?? name ?? "";
-  const finalFechaNacimiento = fechaNacimiento ?? dob ?? null;
-  const finalOcupacion = ocupacion ?? occupation ?? null;
-  const finalEmail = email ?? null;
-  const finalTelefono = telefono ?? phone ?? null;
-  const finalEstado = estado ?? status ?? null;
-  const finalNombreFamilia = nombreFamilia ?? familyName ?? "";
-  const finalDireccion = direccion ?? address ?? null;
-  const finalNotas = notas ?? notes ?? null;
-
-  try {
-    const query = `
-      UPDATE jefes_familia
-      SET nombre = ?, fechaNacimiento = ?, ocupacion = ?, email = ?, telefono = ?, estado = ?, nombreFamilia = ?, direccion = ?, notas = ?
-      WHERE id = ?
-    `;
-    const [result] = await pool.execute(query, [
-      finalNombre,
-      finalFechaNacimiento,
-      finalOcupacion,
-      finalEmail,
-      finalTelefono,
-      finalEstado,
-      finalNombreFamilia,
-      finalDireccion,
-      finalNotas,
-      id,
-    ]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "No encontrado" });
-    }
-
-    res.status(200).json({ message: "Actualizado" });
-  } catch (err) {
-    console.error("Error PUT /api/jefes/:id", err);
-    res.status(500).json({ message: "Error al actualizar" });
+    res.status(500).json({ message: "Error interno", error: err.message });
   }
 });
 
 Router.post("/registrar-jefe", verificarToken, async (req, res) => {
-  const { rol, id: id_usuario } = req.user;
-  const datosRegistro = req.body;
-  const {
-    nombreFamilia,
-    vivienda,
-    cedula,
-    primerNombre,
-    segundoNombre,
-    primerApellido,
-    segundoApellido,
-    fechaNacimiento,
-    sexo,
-    telefono,
-    nacionalidad,
-    mercado,
-    esManzanero,
-    esJefeCalle,
-    carnetCodigo,
-    carnetSerial,
-    email,
-    password, // Datos para la tabla 'usuarios'
-  } = req.body;
-  if (rol === "Jefe") {
-    try {
-      await pool.execute(
-        `INSERT INTO solicitudes_aprobacion (id_usuario_solicitante, tipo_operacion, datos_json) 
-         VALUES (?, 'Registro Jefe', ?)`,
-        [id_usuario, JSON.stringify(datosRegistro)]
-      );
-      return res.status(202).json({
-        message:
-          "Solicitud enviada. Esperando aprobación de la administradora.",
+  const { rol, id_persona: idUsuarioLogueado } = req.user;
+  const d = req.body; // Datos provenientes del formulario
+
+  try {
+    // --- CASO 1: EL USUARIO ES JEFE DE CALLE (CREA SOLICITUD) ---
+    if (rol !== "Administrador") {
+      const solicitudRef = db.collection("solicitudes_aprobacion").doc();
+      
+      await solicitudRef.set({
+        id_usuario_solicitante: String(idUsuarioLogueado),
+        tipo_operacion: "Registro Jefe",
+        estado: "Pendiente",
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        // Guardamos los datos como un Objeto (Map) en Firestore
+        datos_json: {
+          nombreFamilia: d.nombreFamilia,
+          vivienda: d.vivienda,
+          mercado: Number(d.mercado) || 0,
+          cedula: d.cedula,
+          primerNombre: d.primerNombre,
+          segundoNombre: d.segundoNombre || "",
+          primerApellido: d.primerApellido,
+          segundoApellido: d.segundoApellido || "",
+          sexo: d.sexo,
+          telefono: d.telefono,
+          nacionalidad: d.nacionalidad,
+          fechaNacimiento: d.fechaNacimiento, // Se guarda string para procesar al aprobar
+          es_manzanero: Boolean(d.esManzanero),
+          es_jefe_calle: Boolean(d.esJefeCalle),
+          carnetCodigo: d.carnetCodigo || "",
+          carnetSerial: d.carnetSerial || "",
+          email: d.email || "",
+          password: d.password || "", // Se encriptará solo al momento de la aprobación final
+          notes: d.notes || ""
+        }
       });
-    } catch (err) {
-      return res.status(500).json({ message: "Error al enviar solicitud" });
-    }
-  }
 
-  const connection = await pool.getConnection();
-
-  try {
-    await connection.beginTransaction();
-
-    // 1. Insertar el Núcleo Familiar
-    const [resultNucleo] = await connection.execute(
-      `INSERT INTO nucleos_familiares (nombre_familia, vivienda,mercado) VALUES (?, ?,?)`,
-      [nombreFamilia, vivienda, mercado || null]
-    );
-    const idNucleo = resultNucleo.insertId;
-
-    // 2. Insertar los datos civiles en la tabla 'personas'
-    const [resultPersona] = await connection.execute(
-      `INSERT INTO personas 
-      (id_nucleo, rol, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, 
-      fecha_nacimiento, sexo, telefono, nacionalidad, es_manzanero, es_jefe_calle, codigo_carnet, serial_carnet)
-      VALUES (?, 'Jefe', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        idNucleo,
-        cedula,
-        primerNombre,
-        segundoNombre || null,
-        primerApellido,
-        segundoApellido || null,
-        fechaNacimiento || null,
-        sexo || null,
-        telefono || null,
-        nacionalidad || null,
-        esManzanero ? 1 : 0,
-        esJefeCalle ? 1 : 0,
-        carnetCodigo || null,
-        carnetSerial || null,
-      ]
-    );
-    const idPersona = resultPersona.insertId;
-
-    // 3. SI es Jefe de Calle o Manzanero, registrar en la tabla 'usuarios'
-    if (esJefeCalle) {
-      if (!email || !password) {
-        throw new Error("Email y password requeridos para roles comunitarios");
-      }
-
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      await connection.execute(
-        `INSERT INTO usuarios (id_persona, email, password) VALUES (?, ?, ?)`,
-        [idPersona, email, hashedPassword]
-      );
+      return res.status(201).json({ 
+        message: "Solicitud de registro enviada con éxito. El Administrador debe aprobarla." 
+      });
     }
 
-    // 4. Actualizar el jefe principal en el núcleo
-    await connection.execute(
-      `UPDATE nucleos_familiares SET id_jefe_principal = ? WHERE id_nucleo = ?`,
-      [idPersona, idNucleo]
-    );
+    // --- CASO 2: EL USUARIO ES ADMINISTRADOR (REGISTRO DIRECTO) ---
+    const personaRef = db.collection("personas").doc();
+    const nucleoRef = db.collection("nucleos_familiares").doc();
 
-    await connection.commit();
-    res.status(201).json({ message: "Registro completo", idPersona, idNucleo });
-  } catch (err) {
-    await connection.rollback();
-    console.error("Error en registro:", err);
-    res
-      .status(500)
-      .json({ message: err.message || "Error al procesar el registro" });
-  } finally {
-    connection.release();
-  }
-});
+    await db.runTransaction(async (t) => {
+      // 1. Guardar Núcleo
+      t.set(nucleoRef, {
+        id_nucleo: nucleoRef.id,
+        id_jefe_principal: personaRef.id,
+        nombre_familia: d.nombreFamilia,
+        vivienda: d.vivienda,
+        mercado: Number(d.mercado) || 0,
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-Router.get("/nucleos", verificarToken, async (req, res) => {
-  try {
-    const { rol, id_persona } = req.user;
+      // 2. Guardar Persona
+      t.set(personaRef, {
+        id_persona: personaRef.id,
+        id_nucleo: nucleoRef.id,
+        cedula: d.cedula,
+        status: "Activo",
+        primer_nombre: d.primerNombre,
+        segundo_nombre: d.segundoNombre || "",
+        primer_apellido: d.primerApellido,
+        segundo_apellido: d.segundoApellido || "",
+        rol: "Jefe",
+        sexo: d.sexo,
+        telefono: d.telefono,
+        nacionalidad: d.nacionalidad,
+        fecha_nacimiento: d.fechaNacimiento ? admin.firestore.Timestamp.fromDate(new Date(d.fechaNacimiento)) : null,
+        es_manzanero: Boolean(d.esManzanero),
+        es_jefe_calle: Boolean(d.esJefeCalle),
+        codigo_carnet: d.carnetCodigo || "",
+        serial_carnet: d.carnetSerial || "",
+        notes: d.notes || "",
+        fecha_registro: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-    let query;
-    let params = [];
-
-    if (rol === "Administrador") {
-      query = `
-        SELECT 
-          n.id_nucleo, n.nombre_familia, n.vivienda, n.mercado,
-          p.id_persona, p.primer_nombre, p.primer_apellido, p.rol,
-          (SELECT COUNT(*) FROM personas WHERE id_nucleo = n.id_nucleo) AS totalMiembros
-        FROM nucleos_familiares n
-        LEFT JOIN personas p ON n.id_nucleo = p.id_nucleo
-        ORDER BY n.id_nucleo ASC`;
-    } else {
-      query = `
-        SELECT 
-          n.id_nucleo, n.nombre_familia, n.vivienda, n.mercado,
-          p.id_persona, p.primer_nombre, p.primer_apellido, p.rol,
-          (SELECT COUNT(*) FROM personas WHERE id_nucleo = n.id_nucleo) AS totalMiembros
-        FROM nucleos_familiares n
-        LEFT JOIN personas p ON n.id_nucleo = p.id_nucleo
-        WHERE n.vivienda = (
-          SELECT v.vivienda FROM nucleos_familiares v 
-          WHERE v.id_jefe_principal = ?
-        )
-        ORDER BY n.id_nucleo ASC`;
-      params = [id_persona];
-    }
-
-    const [rows] = await pool.execute(query, params);
-
-    // 🧠 Tu lógica de agrupación se mantiene igual (es excelente)
-    const familiasMap = {};
-
-    rows.forEach((row) => {
-      if (!familiasMap[row.id_nucleo]) {
-        familiasMap[row.id_nucleo] = {
-          id: row.id_nucleo,
-          nombre_familia: row.nombre_familia,
-          vivienda: row.vivienda,
-          mercado: row.mercado,
-          totalMiembros: row.totalMiembros,
-          members: [],
-        };
-      }
-
-      if (row.id_persona) {
-        familiasMap[row.id_nucleo].members.push({
-          id: row.id_persona,
-          primer_nombre: row.primer_nombre,
-          primer_apellido: row.primer_apellido,
-          rol: row.rol === "Jefe" ? "Jefe de Familia" : "Miembro",
-          status: "Activo",
-          isHead: row.rol === "Jefe" || row.rol === "Jefe de Familia",
+      // 3. Crear cuenta de usuario si es Jefe de Calle
+      if (d.esJefeCalle && d.email && d.password) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(d.password, salt);
+        const usuarioRef = db.collection("usuarios").doc();
+        
+        t.set(usuarioRef, {
+          id_persona: personaRef.id,
+          email: d.email,
+          password: hashedPassword,
+          rol: "Jefe",
+          status: "Activo"
         });
       }
     });
 
-    const resultado = Object.values(familiasMap);
-    res.json(resultado);
+    res.status(201).json({ 
+      message: "Registro directo realizado con éxito", 
+      idPersona: personaRef.id 
+    });
+
   } catch (err) {
-    console.error("Error GET /api/nucleos:", err);
-    res
-      .status(500)
-      .json({ message: "Error al obtener los núcleos familiares" });
+    console.error("Error en registro:", err);
+    res.status(500).json({ message: "Error al procesar la operación: " + err.message });
   }
 });
 
-Router.post("/agregar-miembro", async (req, res) => {
-  const {
-    idNucleo,
-    cedula,
-    primerNombre,
-    segundoNombre,
-    primerApellido,
-    segundoApellido,
-    fechaNacimiento,
-    sexo,
-    telefono,
-    nacionalidad,
-    carnetCodigo,
-    carnetSerial,
-  } = req.body;
-
-  if (!idNucleo || !primerNombre || !cedula) {
-    return res
-      .status(400)
-      .json({ message: "idNucleo, primerNombre y cedula son requeridos" });
-  }
-
-  try {
-    const query = `INSERT INTO personas 
-      (id_nucleo, rol, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, 
-      fecha_nacimiento, sexo, telefono, nacionalidad, codigo_carnet, serial_carnet)
-      VALUES (?, 'Miembro', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-    const [result] = await pool.execute(query, [
-      idNucleo,
-      cedula,
-      primerNombre,
-      segundoNombre || null,
-      primerApellido,
-      segundoApellido || null,
-      fechaNacimiento || null,
-      sexo || null,
-      telefono || null,
-      nacionalidad || null,
-      carnetCodigo || null,
-      carnetSerial || null,
-    ]);
-
-    res.status(201).json({ message: "Miembro agregado", id: result.insertId });
-  } catch (err) {
-    console.error("Error POST /api/agregar-miembro:", err);
-    res.status(500).json({ message: "Error al agregar miembro al núcleo" });
-  }
-});
-
-Router.put("/editar-miembro/:id", async (req, res) => {
-  const { id } = req.params;
-  const {
-    cedula,
-    primerNombre,
-    segundoNombre,
-    primerApellido,
-    segundoApellido,
-    fechaNacimiento,
-    sexo,
-    telefono,
-    nacionalidad,
-    carnetCodigo,
-    carnetSerial,
-  } = req.body;
-
-  try {
-    const query = `UPDATE personas SET 
-      cedula = ?, primer_nombre = ?, segundo_nombre = ?, 
-      primer_apellido = ?, segundo_apellido = ?, fecha_nacimiento = ?, 
-      sexo = ?, telefono = ?, nacionalidad = ?, 
-      codigo_carnet = ?, serial_carnet = ?
-      WHERE id_persona = ?`;
-
-    await pool.execute(query, [
-      cedula,
-      primerNombre,
-      segundoNombre || null,
-      primerApellido,
-      segundoApellido || null,
-      fechaNacimiento,
-      sexo,
-      telefono || null,
-      nacionalidad,
-      carnetCodigo || null,
-      carnetSerial || null,
-      id,
-    ]);
-
-    res.json({ message: "Miembro actualizado correctamente" });
-  } catch (err) {
-    console.error("Error PUT /api/editar-miembro:", err);
-    res.status(500).json({ message: "Error al actualizar el miembro" });
-  }
-});
-
-Router.get("/personas/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const [rows] = await pool.execute(
-      `
-      SELECT 
-        p.*,
-        nf.nombre_familia,
-        nf.vivienda,
-        nf.mercado,
-
-        CASE 
-          WHEN p.es_jefe_calle = 1 THEN u.email
-          ELSE NULL
-        END AS email,
-
-        CASE 
-          WHEN p.es_jefe_calle = 1 THEN u.password
-          ELSE NULL
-        END AS password,
-
-        (
-          SELECT COUNT(*) 
-          FROM personas p2 
-          WHERE p2.id_nucleo = p.id_nucleo
-        ) AS totalMiembros
-
-      FROM personas p
-      LEFT JOIN nucleos_familiares nf 
-        ON nf.id_nucleo = p.id_nucleo
-
-      LEFT JOIN usuarios u 
-        ON u.id_persona = p.id_persona
-
-      WHERE p.id_persona = ?
-      LIMIT 1
-    `,
-      [id]
-    );
-
-    if (rows.length === 0)
-      return res.status(404).json({ message: "Persona no encontrada" });
-
-    res.json(rows[0]);
-  } catch (error) {
-    console.error("Error obteniendo ficha:", error);
-    res.status(500).json({ message: "Error al obtener la ficha" });
-  }
-});
-
-Router.put("/editar-jefe/:idPersona", async (req, res) => {
-  const {
-    nombreFamilia,
-    vivienda,
-    mercado,
-    cedula,
-    primerNombre,
-    segundoNombre,
-    primerApellido,
-    segundoApellido,
-    fechaNacimiento,
-    sexo,
-    telefono,
-    nacionalidad,
-    esManzanero,
-    esJefeCalle,
-    carnetCodigo,
-    carnetSerial,
-    email,
-    password,
-  } = req.body;
-
+Router.put("/editar-jefe/:idPersona", verificarToken, async (req, res) => {
   const { idPersona } = req.params;
-  const connection = await pool.getConnection();
+  const { rol, id_persona: idUsuarioLogueado } = req.user;
+  const d = req.body;
 
   try {
-    await connection.beginTransaction();
+    // --- CASO 1: EL USUARIO ES JEFE DE CALLE (CREA SOLICITUD DE EDICIÓN) ---
+    if (rol !== "Administrador") {
+      const solicitudRef = db.collection("solicitudes_aprobacion").doc();
+      
+      await solicitudRef.set({
+        id_usuario_solicitante: String(idUsuarioLogueado),
+        tipo_operacion: "Edicion Jefe", // Tipo específico
+        id_referencia: String(idPersona), // ID de la persona a editar
+        estado: "Pendiente",
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        datos_json: {
+          // Empaquetamos todos los campos para que el Admin los reciba
+          nombreFamilia: d.nombreFamilia,
+          vivienda: d.vivienda,
+          mercado: Number(d.mercado) || 0,
+          cedula: d.cedula,
+          primerNombre: d.primerNombre,
+          segundoNombre: d.segundoNombre || "",
+          primerApellido: d.primerApellido,
+          segundoApellido: d.segundoApellido || "",
+          sexo: d.sexo,
+          telefono: d.telefono,
+          nacionalidad: d.nacionalidad,
+          fechaNacimiento: d.fechaNacimiento,
+          esManzanero: Boolean(d.esManzanero),
+          esJefeCalle: Boolean(d.esJefeCalle),
+          carnetCodigo: d.carnetCodigo || "",
+          carnetSerial: d.carnetSerial || "",
+          email: d.email || "",
+          password: d.password || "", // Solo se hasheará si el Admin aprueba
+          notes: d.notes || ""
+        }
+      });
 
-    // 1️⃣ Obtener el núcleo actual del jefe
-    const [[persona]] = await connection.execute(
-      "SELECT id_nucleo FROM personas WHERE id_persona = ?",
-      [idPersona]
-    );
-
-    if (!persona) throw new Error("Persona no encontrada");
-
-    const idNucleo = persona.id_nucleo;
-
-    // 2️⃣ Actualizar núcleo familiar
-    await connection.execute(
-      `UPDATE nucleos_familiares 
-       SET nombre_familia = ?, vivienda = ?, mercado = ?
-       WHERE id_nucleo = ?`,
-      [nombreFamilia, vivienda || null, mercado || null, idNucleo]
-    );
-
-    // 3️⃣ Actualizar datos de persona
-    await connection.execute(
-      `UPDATE personas SET
-        cedula = ?, primer_nombre = ?, segundo_nombre = ?, primer_apellido = ?, segundo_apellido = ?,
-        fecha_nacimiento = ?, sexo = ?, telefono = ?, nacionalidad = ?,
-        es_manzanero = ?, es_jefe_calle = ?, codigo_carnet = ?, serial_carnet = ?
-      WHERE id_persona = ?`,
-      [
-        cedula,
-        primerNombre,
-        segundoNombre || null,
-        primerApellido,
-        segundoApellido || null,
-        fechaNacimiento || null,
-        sexo || null,
-        telefono || null,
-        nacionalidad || null,
-        esManzanero ? 1 : 0,
-        esJefeCalle ? 1 : 0,
-        carnetCodigo || null,
-        carnetSerial || null,
-        idPersona,
-      ]
-    );
-
-    // 4️⃣ Manejo de usuario comunitario
-    if (esJefeCalle) {
-      const [[user]] = await connection.execute(
-        "SELECT id FROM usuarios WHERE id_persona = ?",
-        [idPersona]
-      );
-
-      if (!user) {
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(password, salt);
-
-        await connection.execute(
-          "INSERT INTO usuarios (id_persona, email, password) VALUES (?, ?, ?)",
-          [idPersona, email, hashed]
-        );
-      } else if (password) {
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(password, salt);
-
-        await connection.execute(
-          "UPDATE usuarios SET email = ?, password = ? WHERE id_persona = ?",
-          [email, hashed, idPersona]
-        );
-      }
-    } else {
-      await connection.execute("DELETE FROM usuarios WHERE id_persona = ?", [
-        idPersona,
-      ]);
+      return res.status(202).json({ 
+        message: "Los cambios han sido enviados al Administrador para su revisión." 
+      });
     }
 
-    await connection.commit();
-    res.json({ message: "Jefe actualizado correctamente" });
+    // --- CASO 2: EL USUARIO ES ADMINISTRADOR (EDICIÓN DIRECTA CON TRANSACCIÓN) ---
+    await db.runTransaction(async (t) => {
+      const personaRef = db.collection("personas").doc(String(idPersona));
+      const pSnap = await t.get(personaRef);
+      
+      if (!pSnap.exists) throw new Error("Persona no encontrada");
+
+      const idNucleo = pSnap.data().id_nucleo;
+      const nucleoRef = db.collection("nucleos_familiares").doc(String(idNucleo));
+
+      // 1. Actualizar Núcleo
+      t.update(nucleoRef, {
+        nombre_familia: d.nombreFamilia,
+        vivienda: d.vivienda,
+        mercado: Number(d.mercado) || 0
+      });
+
+      // 2. Preparar objeto de actualización de Persona
+      const updatePersona = {
+        cedula: d.cedula,
+        primer_nombre: d.primerNombre,
+        primer_apellido: d.primerApellido,
+        segundo_nombre: d.segundoNombre || "",
+        segundo_apellido: d.segundoApellido || "",
+        sexo: d.sexo,
+        telefono: d.telefono,
+        codigo_carnet: d.carnetCodigo || "",
+        serial_carnet: d.carnetSerial || "",
+        nacionalidad: d.nacionalidad,
+        es_manzanero: Boolean(d.esManzanero),
+        es_jefe_calle: Boolean(d.esJefeCalle),
+        fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp()
+      };
+
+      if (d.fechaNacimiento) {
+        updatePersona.fecha_nacimiento = admin.firestore.Timestamp.fromDate(new Date(d.fechaNacimiento));
+      }
+
+      t.update(personaRef, updatePersona);
+
+      // 3. Gestión de Usuario (Credenciales)
+      const userQuery = await db.collection("usuarios")
+        .where("id_persona", "==", String(idPersona))
+        .get();
+      
+      if (d.esJefeCalle) {
+        let userData = { 
+          email: d.email, 
+          id_persona: String(idPersona),
+          rol: "Jefe"
+        };
+
+        if (d.password) {
+          const salt = await bcrypt.genSalt(10);
+          userData.password = await bcrypt.hash(d.password, salt);
+        }
+
+        if (userQuery.empty) {
+          t.set(db.collection("usuarios").doc(), userData);
+        } else {
+          t.update(userQuery.docs[0].ref, userData);
+        }
+      } else if (!userQuery.empty) {
+        // Si ya no es jefe de calle, se revoca el acceso
+        t.delete(userQuery.docs[0].ref);
+      }
+    });
+
+    res.json({ message: "Jefe actualizado correctamente por el Administrador" });
+
   } catch (err) {
-    await connection.rollback();
-    console.error("Error PUT editar jefe:", err);
-    res.status(500).json({ message: err.message });
-  } finally {
-    connection.release();
+    console.error("Error en PUT editar-jefe:", err);
+    res.status(500).json({ message: "Error al procesar: " + err.message });
   }
 });
 
-// GET: Obtener solicitudes pendientes
 Router.get("/solicitudes-pendientes", verificarToken, async (req, res) => {
   try {
-    const [rows] = await pool.execute(
-      `SELECT s.*, p.primer_nombre, p.primer_apellido 
-       FROM solicitudes_aprobacion s
-       JOIN usuarios u ON s.id_usuario_solicitante = u.id_usuario
-       JOIN personas p ON u.id_persona = p.id_persona
-       WHERE s.estado = 'Pendiente'
-       ORDER BY s.fecha_creacion DESC`
-    );
-    res.json(rows);
+    const snapshot = await db.collection("solicitudes_aprobacion")
+      .where("estado", "==", "Pendiente")
+      .orderBy("fecha_creacion", "desc")
+      .get();
+
+    if (snapshot.empty) return res.json([]);
+
+    const solicitudes = await Promise.all(snapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      let nombreSolicitante = "Usuario Desconocido";
+
+      // Buscamos quién hizo la solicitud usando su id_usuario
+      const userDoc = await db.collection("usuarios").doc(String(data.id_usuario_solicitante)).get();
+      if (userDoc.exists) {
+        const personaDoc = await db.collection("personas").doc(String(userDoc.data().id_persona)).get();
+        if (personaDoc.exists) {
+          nombreSolicitante = `${personaDoc.data().primer_nombre} ${personaDoc.data().primer_apellido}`;
+        }
+      }
+
+      return {
+        id_solicitud: doc.id,
+        ...data,
+        primer_nombre: nombreSolicitante // Para mantener compatibilidad con tu tabla
+      };
+    }));
+
+    res.json(solicitudes);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Error al obtener solicitudes" });
   }
 });
 
-// POST: Aprobar o Denegar
 Router.post("/procesar-solicitud", verificarToken, async (req, res) => {
   const { id_solicitud, accion } = req.body;
-  const connection = await pool.getConnection();
 
   try {
-    await connection.beginTransaction();
+    const solicitudRef = db.collection("solicitudes_aprobacion").doc(id_solicitud);
+    const solicitudDoc = await solicitudRef.get();
+
+    if (!solicitudDoc.exists) return res.status(404).json({ message: "Solicitud no encontrada" });
+
+    const solicitudData = solicitudDoc.data();
+    const { tipo_operacion, datos_json, id_referencia } = solicitudData;
 
     if (accion === "Aprobado") {
-      // 1. Obtener los datos (vienen como un String JSON de la DB)
-      const [rows] = await connection.execute(
-        "SELECT datos_json FROM solicitudes_aprobacion WHERE id_solicitud = ?",
-        [id_solicitud]
-      );
+      
+      // --- CASO A: REGISTRO DE JEFE NUEVO ---
+      if (tipo_operacion === "Registro Jefe") {
+        const nuevoNucleoRef = db.collection("nucleos_familiares").doc();
+        const nuevaPersonaRef = db.collection("personas").doc();
+        const personaId = nuevaPersonaRef.id;
 
-      if (rows.length === 0) throw new Error("Solicitud no encontrada");
+        await nuevoNucleoRef.set({
+          id_nucleo: nuevoNucleoRef.id,
+          nombre_familia: datos_json.nombreFamilia,
+          vivienda: datos_json.vivienda,
+          mercado: datos_json.mercado || 0,
+          status: "Activo"
+        });
 
-      // ⚠️ CORRECCIÓN 1: Parsear el String a Objeto si es necesario
-      // A veces MySQL devuelve el JSON ya parseado, a veces como String. 
-      // Esto asegura que 'datos' sea siempre un objeto.
-      const datos = typeof rows[0].datos_json === 'string' 
-        ? JSON.parse(rows[0].datos_json) 
-        : rows[0].datos_json;
+        await nuevaPersonaRef.set({
+          id_persona: personaId,
+          id_nucleo: nuevoNucleoRef.id,
+          cedula: datos_json.cedula,
+          primer_nombre: datos_json.primerNombre,
+          primer_apellido: datos_json.primerApellido,
+          rol: "Jefe",
+          status: "Activo",
+          fecha_nacimiento: datos_json.fechaNacimiento ? new Date(datos_json.fechaNacimiento) : null,
+          // ... (resto de tus campos)
+        });
 
-      // ⚠️ CORRECCIÓN 2: Extraer TODAS las variables necesarias del objeto
-      const {
-        nombreFamilia, vivienda, mercado, cedula, primerNombre, segundoNombre,
-        primerApellido, segundoApellido, fechaNacimiento, sexo, telefono,
-        nacionalidad, esManzanero, esJefeCalle, carnetCodigo, carnetSerial,
-        email, password
-      } = datos;
+        await nuevoNucleoRef.update({ id_jefe_principal: personaId });
 
-      // 2. Insertar Núcleo
-      const [resultNucleo] = await connection.execute(
-        `INSERT INTO nucleos_familiares (nombre_familia, vivienda, mercado) VALUES (?, ?, ?)`,
-        [nombreFamilia, vivienda, mercado || null]
-      );
-      const idNucleo = resultNucleo.insertId;
-
-      // 3. Insertar Persona
-      const [resultPersona] = await connection.execute(
-        `INSERT INTO personas 
-        (id_nucleo, rol, cedula, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, 
-        fecha_nacimiento, sexo, telefono, nacionalidad, es_manzanero, es_jefe_calle, codigo_carnet, serial_carnet)
-        VALUES (?, 'Jefe', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          idNucleo, cedula, primerNombre, segundoNombre || null,
-          primerApellido, segundoApellido || null, fechaNacimiento || null,
-          sexo || null, telefono || null, nacionalidad || null,
-          esManzanero ? 1 : 0, esJefeCalle ? 1 : 0,
-          carnetCodigo || null, carnetSerial || null,
-        ]
-      );
-      const idPersona = resultPersona.insertId;
-
-      // 4. Registrar Usuario si es Jefe de Calle
-      if (esJefeCalle && email && password) {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-        await connection.execute(
-          `INSERT INTO usuarios (id_persona, email, password) VALUES (?, ?, ?)`,
-          [idPersona, email, hashedPassword]
-        );
+        if (datos_json.esJefeCalle && datos_json.email && datos_json.password) {
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(datos_json.password, salt);
+          await db.collection("usuarios").add({
+            id_persona: personaId,
+            email: datos_json.email,
+            password: hashedPassword,
+            rol: "Jefe",
+            status: "Activo"
+          });
+        }
       }
 
-      // 5. Vincular Jefe Principal
-      await connection.execute(
-        `UPDATE nucleos_familiares SET id_jefe_principal = ? WHERE id_nucleo = ?`,
-        [idPersona, idNucleo]
-      );
+      // --- CASO B: EDICIÓN DE PERSONA EXISTENTE ---
+      else if (tipo_operacion === "Edicion Persona") {
+        await db.collection("personas").doc(id_referencia).update({
+          primer_nombre: datos_json.primerNombre,
+          primer_apellido: datos_json.primerApellido,
+          cedula: datos_json.cedula,
+          telefono: datos_json.telefono
+          // Solo actualizas los campos que permitas editar
+        });
+      }
+
+      // --- CASO C: ARCHIVAR (BAJA) ---
+      else if (tipo_operacion === "Baja Persona") {
+        await db.collection("personas").doc(id_referencia).update({
+          status: "Inactivo",
+          fecha_baja: new Date(),
+          motivo_baja: datos_json.motivo || "Solicitado por Jefe de Calle"
+        });
+      }
     }
 
-    // 6. Actualizar el estado de la solicitud (Siempre ocurre, sea Aprobado o Denegado)
-    await connection.execute(
-      "UPDATE solicitudes_aprobacion SET estado = ? WHERE id_solicitud = ?",
-      [accion, id_solicitud]
-    );
+    // Al final, marcamos la solicitud como procesada (sea Aprobado o Denegado)
+    await solicitudRef.update({ estado: accion });
 
-    await connection.commit();
-    res.json({ message: `Solicitud ${accion} con éxito` });
+    res.json({ message: `Solicitud de ${tipo_operacion} procesada como: ${accion}` });
 
   } catch (err) {
-    await connection.rollback();
-    console.error("Error en el servidor:", err); // Revisa tu terminal para ver el detalle
-    res.status(500).json({ message: "Error al procesar", error: err.message });
-  } finally {
-    connection.release();
+    console.error("Error al procesar:", err);
+    res.status(500).json({ message: "Error interno", error: err.message });
+  }
+});
+
+Router.post("/registrar-solicitud", verificarToken, async (req, res) => {
+  try {
+    const { id_usuario, id_persona: idSolicitante } = req.user;
+    const { tipo_operacion, datos_json, id_referencia } = req.body; 
+    // id_referencia: ID de la persona o núcleo que se quiere editar/archivar
+
+    const nuevaSolicitud = {
+      id_usuario_solicitante: String(id_usuario),
+      tipo_operacion, // "Edicion Persona", "Baja Persona", etc.
+      datos_json,    // Objeto con los nuevos datos o motivo de baja
+      id_referencia: id_referencia || null,
+      estado: "Pendiente",
+      fecha_creacion: new Date()
+    };
+
+    await db.collection("solicitudes_aprobacion").add(nuevaSolicitud);
+    res.json({ message: "Solicitud enviada al administrador" });
+  } catch (err) {
+    res.status(500).json({ message: "Error al enviar solicitud" });
   }
 });
 

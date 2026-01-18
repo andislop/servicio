@@ -19,6 +19,7 @@ import {
   Phone,
   ChevronRight,
   FileText,
+  MailSearch,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -33,6 +34,7 @@ const iconMap = {
   "María .i.": User,
   "Agregar Contenido": Plus,
   "Usuarios en el Sistema": Users,
+  "Datos": MailSearch
 };
 function Sidebar({ links, isOpen, onClose, userRole }) {
 
@@ -42,10 +44,10 @@ function Sidebar({ links, isOpen, onClose, userRole }) {
     'Administrador': [
       "Dashboard", "Jefes de Familia", "Núcleos Familiares", 
       "Manzaneros", "Usuarios en el Sistema", "Configuración", 
-      "Archivados", "Agregar Contenido"
+      "Archivados", "Agregar Contenido", "Datos"
     ],
     'Jefe': [
-      "Dashboard", "Jefes de Familia", "Núcleos Familiares","Configuración"
+      "Dashboard", "Jefes de Familia", "Núcleos Familiares","Configuración","Archivados", "Datos"
     ]
   };
 
@@ -90,10 +92,10 @@ function Sidebar({ links, isOpen, onClose, userRole }) {
               className="w-[50px]"
             />
             <span className="ml-2 text-l font-semibold whitespace-nowrap hidden md:block text-dark pr-7">
-              Comunidad Villa Productiva
+              Comunidad Villa Productiva III
             </span>
             <span className="text-sm font-semibold block md:hidden mt-1 text-dark">
-              Comunidad Villa Productiva
+              Comunidad Villa Productiva III
             </span>
           </div>
           {/* Botón de Cerrar: Visible solo en móviles [cite: 186] */}

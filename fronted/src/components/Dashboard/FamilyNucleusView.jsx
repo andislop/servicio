@@ -5,7 +5,7 @@ import {
   Plus,
   Eye,
   Edit,
-  Trash2,
+  Archive,
   Menu,
 } from "lucide-react"; // Importamos Menu
 import StatusBadge from "./StatusBadge";
@@ -17,6 +17,7 @@ const FamilyNucleusView = ({
   onViewMember,
   onEdit,
   onEditMember,
+  onArchive
 }) => {
   const [expandedFamilyId, setExpandedFamilyId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1); // Nuevo estado para la página actual
@@ -252,10 +253,11 @@ const FamilyNucleusView = ({
                           <Edit className="h-5 w-5" />
                         </button>
                         <button
+                          onClick={() => onArchive(member)}
                           className="text-gray-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors"
                           aria-label="Eliminar miembro"
                         >
-                          <Trash2 className="h-5 w-5" />
+                          <Archive className="h-5 w-5" />
                         </button>
                       </div>
                     </div>

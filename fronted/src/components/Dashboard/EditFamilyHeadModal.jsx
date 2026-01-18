@@ -3,7 +3,6 @@ import { Plus } from "lucide-react";
 import FamilyHeadForm from "./FamilyHeadModal";
 
 const EditFamilyHeadModal = ({ isOpen, onClose, familyHead, onSave }) => {
-
   const [formData, setFormData] = useState({});
   useEffect(() => {
     if (familyHead) {
@@ -21,17 +20,18 @@ const EditFamilyHeadModal = ({ isOpen, onClose, familyHead, onSave }) => {
         mercado: familyHead.mercado || "",
         telefono: familyHead.telefono || "",
         nacionalidad: familyHead.nacionalidad || "",
-        esManzanero: familyHead.es_manzanero === 1,
-        esJefeCalle: familyHead.es_jefe_calle === 1,
+        esManzanero: familyHead.es_manzanero === true || familyHead.es_manzanero === 1,
+        esJefeCalle:familyHead.es_jefe_calle === true || familyHead.es_jefe_calle === 1,
         carnetCodigo: familyHead.codigo_carnet || "",
         carnetSerial: familyHead.serial_carnet || "",
         email: familyHead.email || "",
         password: "",
+        notes: familyHead.notes || "",
       });
     }
   }, [familyHead]);
 
-    if (!isOpen) return null;
+  if (!isOpen) return null;
 
   return (
     <div
