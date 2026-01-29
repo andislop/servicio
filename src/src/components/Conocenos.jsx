@@ -15,14 +15,17 @@ function Conocenos() {
               <b>¿Quiénes Somos?</b>
             </h1>
             <p className="text-blanco text-justify">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Sunt
-              similique aperiam dolorem saepe, molestiae sed iure culpa!
-              Architecto dicta odit quis laborum! Quaerat, molestiae. Aliquam
-              nihil itaque corrupti! Explicabo, eveniet. Commodi itaque deleniti
-              deleniti doloribus, accusamus necessitatibus est ullam voluptate,
-              quo eaque repellat autem eveniet nobis nam officiis, voluptas
-              numquam consequatur veniam ab animi dolorem ad. Possimus ad atque
-              maxime eum.
+              Somos la comunidad Villa Productiva III, un urbanismo consolidado
+              gracias al esfuerzo colectivo y al apoyo de la Gran Misión
+              Vivienda Venezuela desde el año 2016. Ubicados en la Parroquia
+              Juan de Villegas de Barquisimeto, nuestro sector 'Torres' alberga
+              a más de 3,200 habitantes distribuidos en 13 edificaciones que hoy
+              representan el hogar de cientos de familias luchadoras. Nos
+              definimos como una comunidad organizada que, bajo los principios
+              de la democracia participativa, busca modernizar su gestión
+              interna mediante la innovación tecnológica para garantizar el
+              bienestar, la comunicación efectiva y el resguardo de la
+              información de cada uno de nuestros residentes.
             </p>
           </div>
         </div>
