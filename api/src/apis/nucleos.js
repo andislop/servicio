@@ -112,7 +112,8 @@ Router.get("/personas/:id", async (req, res) => {
 });
 
 
-Router.post("/agregar-miembro", async (req, res) => {
+Router.post("/agregar-miembro", verificarToken, async (req, res) => {
+  const { rol, id_persona: idUsuarioLogueado } = req.user;
   const d = req.body;
 
   if (!d.idNucleo || !d.primerNombre || !d.cedula) {
@@ -120,11 +121,42 @@ Router.post("/agregar-miembro", async (req, res) => {
   }
 
   try {
-    const personaRef = db.collection("personas").doc(); // Genera ID automático
-    
+    // --- CASO 1: JEFE DE CALLE (CREA SOLICITUD) ---
+    if (rol !== "Administrador") {
+      const solicitudRef = db.collection("solicitudes_aprobacion").doc();
+      
+      await solicitudRef.set({
+        id_usuario_solicitante: String(idUsuarioLogueado),
+        tipo_operacion: "Registro Miembro",
+        id_referencia: String(d.idNucleo), // Referenciamos al núcleo donde se agregará
+        estado: "Pendiente",
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        datos_json: {
+          idNucleo: String(d.idNucleo),
+          cedula: d.cedula,
+          primerNombre: d.primerNombre,
+          segundoNombre: d.segundoNombre || "",
+          primerApellido: d.primerApellido,
+          segundoApellido: d.segundoApellido || "",
+          sexo: d.sexo || "",
+          telefono: d.telefono || "",
+          nacionalidad: d.nacionalidad || "",
+          carnetCodigo: d.carnetCodigo || "",
+          carnetSerial: d.carnetSerial || "",
+          fechaNacimiento: d.fechaNacimiento || null
+        }
+      });
+
+      return res.status(201).json({ 
+        message: "Solicitud de registro de miembro enviada al Administrador." 
+      });
+    }
+
+    // --- CASO 2: ADMINISTRADOR (REGISTRO DIRECTO) ---
+    const personaRef = db.collection("personas").doc();
     const nuevoMiembro = {
       id_persona: personaRef.id,
-      id_nucleo: String(d.idNucleo), // Aseguramos que sea String para consistencia
+      id_nucleo: String(d.idNucleo),
       rol: "Miembro",
       cedula: d.cedula,
       status: "Activo",
@@ -139,25 +171,58 @@ Router.post("/agregar-miembro", async (req, res) => {
       serial_carnet: d.carnetSerial || "",
       es_manzanero: false,
       es_jefe_calle: false,
+      fecha_registro: admin.firestore.FieldValue.serverTimestamp(),
       fecha_nacimiento: d.fechaNacimiento 
         ? admin.firestore.Timestamp.fromDate(new Date(d.fechaNacimiento)) 
-        : null // Guardar como Timestamp
+        : null
     };
 
     await personaRef.set(nuevoMiembro);
+    res.status(201).json({ message: "Miembro agregado directamente", id: personaRef.id });
 
-    res.status(201).json({ message: "Miembro agregado", id: personaRef.id });
   } catch (err) {
-    console.error("Error POST /api/agregar-miembro:", err);
-    res.status(500).json({ message: "Error al agregar miembro al núcleo" });
+    console.error("Error en agregar-miembro:", err);
+    res.status(500).json({ message: "Error al procesar operación" });
   }
 });
 
-Router.put("/editar-miembro/:id", async (req, res) => {
-  const { id } = req.params;
+Router.put("/editar-miembro/:id", verificarToken, async (req, res) => {
+  const { id } = req.params; // ID de la persona a editar
+  const { rol, id_persona: idUsuarioLogueado } = req.user;
   const d = req.body;
 
   try {
+    // --- CASO 1: JEFE DE CALLE (CREA SOLICITUD DE EDICIÓN) ---
+    if (rol !== "Administrador") {
+      const solicitudRef = db.collection("solicitudes_aprobacion").doc();
+      
+      await solicitudRef.set({
+        id_usuario_solicitante: String(idUsuarioLogueado),
+        tipo_operacion: "Edicion Miembro",
+        id_referencia: String(id), // ID de la persona a editar
+        estado: "Pendiente",
+        fecha_creacion: admin.firestore.FieldValue.serverTimestamp(),
+        datos_json: {
+          cedula: d.cedula,
+          primerNombre: d.primerNombre,
+          segundoNombre: d.segundoNombre || "",
+          primerApellido: d.primerApellido,
+          segundoApellido: d.segundoApellido || "",
+          sexo: d.sexo,
+          telefono: d.telefono || "",
+          nacionalidad: d.nacionalidad,
+          carnetCodigo: d.carnetCodigo || "",
+          carnetSerial: d.carnetSerial || "",
+          fechaNacimiento: d.fechaNacimiento || null
+        }
+      });
+
+      return res.status(202).json({ 
+        message: "Los cambios del miembro han sido enviados a revisión." 
+      });
+    }
+
+    // --- CASO 2: ADMINISTRADOR (ACTUALIZACIÓN DIRECTA) ---
     const personaRef = db.collection("personas").doc(String(id));
     
     const updateData = {
@@ -170,21 +235,22 @@ Router.put("/editar-miembro/:id", async (req, res) => {
       telefono: d.telefono || "",
       nacionalidad: d.nacionalidad,
       codigo_carnet: d.carnetCodigo || "",
-      serial_carnet: d.carnetSerial || ""
+      serial_carnet: d.carnetSerial || "",
+      fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp()
     };
 
-    // Conversión de fecha si está presente
     if (d.fechaNacimiento) {
       updateData.fecha_nacimiento = admin.firestore.Timestamp.fromDate(new Date(d.fechaNacimiento));
     }
 
     await personaRef.update(updateData);
+    res.json({ message: "Miembro actualizado directamente por el Administrador" });
 
-    res.json({ message: "Miembro actualizado correctamente" });
   } catch (err) {
-    console.error("Error PUT /api/editar-miembro:", err);
+    console.error("Error en editar-miembro:", err);
     res.status(500).json({ message: "Error al actualizar el miembro" });
   }
 });
+
 
 export default Router;

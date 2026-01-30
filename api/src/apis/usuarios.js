@@ -871,54 +871,81 @@ Router.put("/update-profile-secure", verificarToken, async (req, res) => {
       confirmPassword,
       email,
       telefono,
+      nombre_familia, // <--- Extraemos el nombre de familia del body
+      vivienda,       // <--- Extraemos vivienda por si también quieres que sea editable
       ...datosPerfil
     } = req.body;
 
-    const userRef = db.collection("usuarios").doc(String(id_persona));
-    const personaRef = db.collection("personas").doc(String(id_persona));
+    // 1. BUSCAR EL USUARIO (Credenciales)
+    const userQuery = await db.collection("usuarios")
+      .where("id_persona", "==", String(id_persona))
+      .limit(1)
+      .get();
 
-    const userDoc = await userRef.get();
-    if (!userDoc.exists)
+    if (userQuery.empty) {
       return res.status(404).json({ message: "Usuario no existe" });
+    }
+
+    const userSnapshot = userQuery.docs[0];
+    const userRef = userSnapshot.ref;
+    const userData = userSnapshot.data();
+
+    // 2. BUSCAR LA PERSONA PARA OBTENER SU id_nucleo
+    const personaRef = db.collection("personas").doc(String(id_persona));
+    const personaDoc = await personaRef.get();
+    
+    if (!personaDoc.exists) {
+      return res.status(404).json({ message: "Datos de persona no encontrados" });
+    }
+    
+    const id_nucleo = personaDoc.data().id_nucleo;
 
     /* =============================
        VALIDACIÓN DE PASSWORD
     ============================== */
     if (newPassword) {
-      if (!oldPassword)
-        return res.status(400).json({ message: "Debe ingresar la contraseña actual" });
+      if (!oldPassword) return res.status(400).json({ message: "Debe ingresar la contraseña actual" });
+      if (newPassword !== confirmPassword) return res.status(400).json({ message: "Las contraseñas nuevas no coinciden" });
 
-      if (newPassword !== confirmPassword)
-        return res.status(400).json({ message: "Las contraseñas nuevas no coinciden" });
-
-      const isMatch = await bcrypt.compare(oldPassword, userDoc.data().password);
-      if (!isMatch)
-        return res.status(401).json({ message: "La contraseña actual es incorrecta" });
+      const isMatch = await bcrypt.compare(oldPassword, userData.password);
+      if (!isMatch) return res.status(401).json({ message: "La contraseña actual es incorrecta" });
     }
 
     /* =============================
-       BATCH UPDATE
+       BATCH UPDATE (Transaccional)
     ============================== */
     const batch = db.batch();
 
-    // Usuarios
+    // A. Actualizar Usuarios (Email y Clave)
     const authUpdate = {};
     if (email) authUpdate.email = email;
     if (newPassword) authUpdate.password = await bcrypt.hash(newPassword, 10);
+    if (Object.keys(authUpdate).length > 0) batch.update(userRef, authUpdate);
 
-    if (Object.keys(authUpdate).length > 0) {
-      batch.update(userRef, authUpdate);
+    // B. Actualizar Núcleo Familiar (nombre_familia y vivienda)
+    if (id_nucleo && (nombre_familia || vivienda)) {
+      const nucleoRef = db.collection("nucleos_familiares").doc(String(id_nucleo));
+      const nucleoUpdate = {};
+      if (nombre_familia) nucleoUpdate.nombre_familia = nombre_familia;
+      if (vivienda) nucleoUpdate.vivienda = vivienda;
+      
+      batch.update(nucleoRef, nucleoUpdate);
     }
 
-    // Personas
+    // C. Actualizar Datos Personales
     const personaUpdate = {
       ...datosPerfil,
       ...(telefono && { telefono })
     };
 
-    // Eliminar undefined
+    // Limpiar campos que no pertenecen a 'personas'
+    delete personaUpdate.id_persona;
+    delete personaUpdate.id_nucleo;
+    delete personaUpdate.nombre_familia; // Evitar que se guarde duplicado en personas
+    delete personaUpdate.vivienda;       // Evitar que se guarde duplicado en personas
+
     Object.keys(personaUpdate).forEach(
-      (k) => personaUpdate[k] === undefined && delete personaUpdate[k]
+      (k) => (personaUpdate[k] === undefined || personaUpdate[k] === null) && delete personaUpdate[k]
     );
 
     if (Object.keys(personaUpdate).length > 0) {
@@ -927,48 +954,62 @@ Router.put("/update-profile-secure", verificarToken, async (req, res) => {
 
     await batch.commit();
 
-    res.json({ message: "Perfil actualizado correctamente" });
+    res.json({ message: "Perfil y datos familiares actualizados correctamente" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error al actualizar" });
+    console.error("Error en update-profile-secure:", err);
+    res.status(500).json({ message: "Error al actualizar: " + err.message });
   }
 });
 
 Router.get("/profile-settings", verificarToken, async (req, res) => {
   try {
-    const { id_persona } = req.user; // ID numérico o string
+    const { id_persona } = req.user;
 
-    // Ejecutamos ambas consultas en paralelo para máxima velocidad
-    const [personaDoc, usuarioDoc] = await Promise.all([
-      db.collection("personas").doc(String(id_persona)).get(),
-      db.collection("usuarios").doc(String(id_persona)).get()
-    ]);
+    // 1. Buscamos los datos personales por ID de documento
+    const personaDoc = await db.collection("personas").doc(String(id_persona)).get();
 
-    if (!personaDoc.exists) return res.status(404).json({ message: "No se encontró el perfil" });
+    if (!personaDoc.exists) {
+      return res.status(404).json({ message: "No se encontró el perfil" });
+    }
+
+    // 2. BUSCAMOS EL USUARIO POR CAMPO, NO POR ID DE DOCUMENTO
+    const usuarioQuery = await db.collection("usuarios")
+      .where("id_persona", "==", String(id_persona))
+      .limit(1)
+      .get();
 
     const p = personaDoc.data();
-    const u = usuarioDoc.exists ? usuarioDoc.data() : {};
+    // Sacamos los datos del primer documento encontrado en la query
+    const u = !usuarioQuery.empty ? usuarioQuery.docs[0].data() : null;
 
-    // Obtener vivienda desde el núcleo de forma directa
-    let vivienda = "No asignada";
+    let vivienda = "";
+    let nombre_familia = "";
+
+    // SACAR DATOS DEL NÚCLEO
     if (p.id_nucleo) {
       const nucleoDoc = await db.collection("nucleos_familiares").doc(String(p.id_nucleo)).get();
-      if (nucleoDoc.exists) vivienda = nucleoDoc.data().vivienda;
+      if (nucleoDoc.exists) {
+        const nucleo = nucleoDoc.data();
+        vivienda = nucleo.vivienda || "";
+        nombre_familia = nucleo.nombre_familia || "";
+      }
     }
 
     res.json({
-      primer_nombre: p.primer_nombre || "",
-      segundo_nombre: p.segundo_nombre || "",
-      primer_apellido: p.primer_apellido || "",
-      segundo_apellido: p.segundo_apellido || "",
-      cedula: p.cedula || "",
-      nacionalidad: p.nacionalidad || "Venezolana",
-      telefono: p.telefono || "",
-      nombre_familia: p.nombre_familia || "",
-      email: u.email || "", // Traído de la tabla usuarios
-      vivienda: vivienda
+      primer_nombre: p.primer_nombre ?? "",
+      segundo_nombre: p.segundo_nombre ?? "",
+      primer_apellido: p.primer_apellido ?? "",
+      segundo_apellido: p.segundo_apellido ?? "",
+      cedula: p.cedula ?? "",
+      nacionalidad: p.nacionalidad ?? "Venezolana",
+      telefono: p.telefono ?? "",
+      nombre_familia,
+      // Ahora 'u' tendrá los datos porque lo buscamos con .where()
+      email: u?.email ?? "", 
+      vivienda,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Error de servidor" });
   }
 });

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, CheckCircle, XCircle } from "lucide-react";
-import { toast } from "sonner";
 
 const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
   const isEdit = Boolean(initialData);
@@ -29,6 +28,8 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
 
   const [perteneceATorre, setPerteneceATorre] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [allowPasswordEdit, setAllowPasswordEdit] = useState(false);
+
   const [passValidation, setPassValidation] = useState({
     length: false,
     hasNumber: false,
@@ -39,23 +40,18 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
     if (initialData) {
       setFormData({
         ...initialData,
-        // Corregimos posibles errores de nombres provenientes del modal
         mercado: initialData.mercado ?? 0,
-        segundoNombre: initialData.segundoNombre || null,
-        segundoApellido: initialData.segundoApellido || null,
-
-        // IMPORTANTE: Convertir a booleano real, no string "false"
+        segundoNombre: initialData.segundoNombre || "",
+        segundoApellido: initialData.segundoApellido || "",
+        email: initialData.email || "",
+        password: "", // NUNCA cargamos la real
         esManzanero: initialData.esManzanero === true,
         esJefeCalle: initialData.esJefeCalle === true,
-
-        // Asegurar que el password viaje con el nombre correcto (una 's' menos)
-        password: initialData.password || null,
-
-        // Formatear fecha si existe
         fechaNacimiento: initialData.fechaNacimiento
           ? initialData.fechaNacimiento.split("T")[0]
-          : null,
+          : "",
       });
+
       if (initialData.vivienda?.toLowerCase().includes("torre"))
         setPerteneceATorre("si");
       else if (initialData.vivienda) setPerteneceATorre("no");
@@ -78,33 +74,34 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    // CLAVE PARA EL ERROR: Limpiar datos si no es jefe de calle
     const dataToSend = { ...formData };
 
     if (dataToSend.esJefeCalle) {
-      // Validar que realmente escribió algo
-      if (!dataToSend.email || !dataToSend.password) {
-        toast.error("Error de carga", {
-          description:
-            "Por favor ingrese el correo y contraseña para el jefe de calle. Reintente en unos momentos.",
-        });
+      if (!dataToSend.email) {
+        alert("Debe ingresar correo del Jefe de Calle");
         return;
       }
-      // Validar seguridad
-      if (
-        !passValidation.length ||
-        !passValidation.hasUpper ||
-        !passValidation.hasNumber
-      ) {
-        toast.error("Contraseña no cumple", {
-          description:
-            "La contraseña no cumple con los requisitos. Reintente en unos momentos.",
-        });
-        return;
+
+      if (isEdit) {
+        if (!allowPasswordEdit) {
+          delete dataToSend.password;
+        } else {
+          if (
+            !passValidation.length ||
+            !passValidation.hasUpper ||
+            !passValidation.hasNumber
+          ) {
+            alert("La nueva contraseña no cumple los requisitos.");
+            return;
+          }
+        }
+      } else {
+        if (!dataToSend.password) {
+          alert("La contraseña es obligatoria para nuevos registros.");
+          return;
+        }
       }
     } else {
-      // Si NO es jefe de calle, eliminamos estos campos para que el backend no de error
       delete dataToSend.email;
       delete dataToSend.password;
     }
@@ -381,65 +378,58 @@ const FamilyHeadModal = ({ initialData, onSave, onClose }) => {
             onChange={handleChange}
             required
           />
+
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Contraseña"
-              className="w-full border rounded-md p-2 pr-10 bg-white"
+              placeholder={
+                isEdit && !allowPasswordEdit
+                  ? "********"
+                  : "Contraseña"
+              }
+              disabled={isEdit && !allowPasswordEdit}
+              className="w-full border rounded-md p-2 pr-10 bg-white disabled:bg-gray-200"
               value={formData.password}
               onChange={handleChange}
-              required
             />
+
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-2.5 text-gray-400"
+              disabled={isEdit && !allowPasswordEdit}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          {/* Validación visual de la contraseña */}
-          <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-tight">
-            <span
-              className={`flex items-center gap-1 ${
-                passValidation.length ? "text-green-600" : "text-red-400"
-              }`}
+
+          {isEdit && !allowPasswordEdit && (
+            <button
+              type="button"
+              onClick={() => setAllowPasswordEdit(true)}
+              className="text-blue-600 text-sm underline"
             >
-              {passValidation.length ? (
-                <CheckCircle size={12} />
-              ) : (
-                <XCircle size={12} />
-              )}{" "}
-              8+ Caracteres
-            </span>
-            <span
-              className={`flex items-center gap-1 ${
-                passValidation.hasUpper ? "text-green-600" : "text-red-400"
-              }`}
-            >
-              {passValidation.hasUpper ? (
-                <CheckCircle size={12} />
-              ) : (
-                <XCircle size={12} />
-              )}{" "}
-              Mayúscula
-            </span>
-            <span
-              className={`flex items-center gap-1 ${
-                passValidation.hasNumber ? "text-green-600" : "text-red-400"
-              }`}
-            >
-              {passValidation.hasNumber ? (
-                <CheckCircle size={12} />
-              ) : (
-                <XCircle size={12} />
-              )}{" "}
-              Número
-            </span>
-          </div>
+              Cambiar contraseña
+            </button>
+          )}
+
+          {(!isEdit || allowPasswordEdit) && (
+            <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-tight">
+              <span className={passValidation.length ? "text-green-600" : "text-red-400"}>
+                8+ caracteres
+              </span>
+              <span className={passValidation.hasUpper ? "text-green-600" : "text-red-400"}>
+                Mayúscula
+              </span>
+              <span className={passValidation.hasNumber ? "text-green-600" : "text-red-400"}>
+                Número
+              </span>
+            </div>
+          )}
         </div>
       )}
+
 
       {/* 9. Carnet de la Patria */}
       <div className="pt-2">

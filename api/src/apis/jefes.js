@@ -2,6 +2,7 @@ import express from "express";
 import pool from "../config/bd.js";
 import db from "../config/firebase.js";
 import admin from "firebase-admin";
+import bcrypt from "bcryptjs";
 import verificarToken from "../Middleware/autenticación.js";
 const Router = express.Router();
 
@@ -291,25 +292,46 @@ Router.get("/solicitudes-pendientes", verificarToken, async (req, res) => {
       const data = doc.data();
       let nombreSolicitante = "Usuario Desconocido";
 
-      // Buscamos quién hizo la solicitud usando su id_usuario
-      const userDoc = await db.collection("usuarios").doc(String(data.id_usuario_solicitante)).get();
-      if (userDoc.exists) {
-        const personaDoc = await db.collection("personas").doc(String(userDoc.data().id_persona)).get();
-        if (personaDoc.exists) {
-          nombreSolicitante = `${personaDoc.data().primer_nombre} ${personaDoc.data().primer_apellido}`;
+      // 1. IMPORTANTE: Buscamos en la colección 'personas' directamente 
+      // si lo que guardaste en 'id_usuario_solicitante' es el ID de la persona.
+      // En tus rutas anteriores guardas: id_usuario_solicitante: String(idUsuarioLogueado)
+      // Y idUsuarioLogueado viene de req.user.id_persona.
+      
+      const personaDoc = await db.collection("personas")
+        .doc(String(data.id_usuario_solicitante))
+        .get();
+
+      if (personaDoc.exists) {
+        const p = personaDoc.data();
+        nombreSolicitante = `${p.primer_nombre} ${p.primer_apellido}`;
+      } else {
+        // 2. Si por alguna razón guardaste el ID aleatorio del documento de usuario,
+        // entonces buscamos el usuario primero y luego su persona:
+        const userQuery = await db.collection("usuarios")
+          .where("id_persona", "==", String(data.id_usuario_solicitante))
+          .limit(1)
+          .get();
+
+        if (!userQuery.empty) {
+          const idPersonaReal = userQuery.docs[0].data().id_persona;
+          const pDoc = await db.collection("personas").doc(idPersonaReal).get();
+          if (pDoc.exists) {
+            nombreSolicitante = `${pDoc.data().primer_nombre} ${pDoc.data().primer_apellido}`;
+          }
         }
       }
 
       return {
         id_solicitud: doc.id,
         ...data,
-        primer_nombre: nombreSolicitante // Para mantener compatibilidad con tu tabla
+        nombre_solicitante: nombreSolicitante, // Nombre más descriptivo
+        primer_nombre: nombreSolicitante // Mantenemos para tu tabla actual
       };
     }));
 
     res.json(solicitudes);
   } catch (err) {
-    console.error(err);
+    console.error("Error en solicitudes-pendientes:", err);
     res.status(500).json({ message: "Error al obtener solicitudes" });
   }
 });

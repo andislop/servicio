@@ -243,7 +243,7 @@ const FamilyNucleusView = ({
                           onClick={() => {
                             // 2. Lógica condicional: Si es Jefe usa la función de Jefe, si no, la de Miembro
                             if (member.rol === "Jefe de Familia") {
-                              onEdit(family); // Tu función actual para editar el núcleo/jefe
+                              onEdit(member); // Tu función actual para editar el núcleo/jefe
                             } else {
                               onEditMember(member); // Nueva función para miembros
                             }

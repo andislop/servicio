@@ -726,7 +726,7 @@ const Dashboard = () => {
     };
 
     try {
-      await Axios.put(`/api/editar-miembro/${idPersona}`, dataToBackend);
+      await Axios.put(`/api/editar-miembro/${idPersona}`, dataToBackend, { withCredentials: true });
       toast.success("Datos actualizados", {
         description: "¡Datos actualizados!.",
       });
